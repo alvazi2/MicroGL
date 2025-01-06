@@ -1,3 +1,16 @@
+# For now ignore Excel files
+.xls*
+
+# Ignore bank files
+Bank-Files/
+
+# Mac technical (not sure why these are there)
+.DS_Store
+
+# ---------------------------------------------
+# Below is from standard GitHub Python template
+# ---------------------------------------------
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
