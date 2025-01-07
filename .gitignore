@@ -4,6 +4,9 @@
 # Ignore bank files
 Bank-Files/
 
+# Ignore JSON setting files
+*.json
+
 # Mac technical (not sure why these are there)
 .DS_Store
 
