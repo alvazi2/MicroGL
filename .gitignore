@@ -4,6 +4,9 @@
 # Ignore bank files
 Bank-Files/
 
+# Ignore GL files
+GL-Files/
+
 # Ignore JSON setting files
 *.json
 
