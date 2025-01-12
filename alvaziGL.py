@@ -2,20 +2,41 @@
 
 # Libraries
 import pandas as pd  # To read and represent csv files (bank exports)
+from datetime import datetime  # To represent dates
 import json  # To read JSON files
 from decimal import Decimal  # To represent monetary values  https://docs.python.org/3/library/decimal.html
 from dataclasses import dataclass
 import hashlib # To hash transaction details
 import sqlite3 # To store the GL data in a database
 
-class BankAccountProperties:
-    def __init__(self, json_file_path: str):
-        self.json_file_path = json_file_path
+class BankAccount:
+    def __init__(self, property_file_path: str, bank_account_short_code: str):
+        self.json_file_path = property_file_path
+        self.bank_account_short_code = bank_account_short_code
         self.properties = self._read_json_file()
 
     def _read_json_file(self):
         with open(self.json_file_path, 'r') as file:
-            return json.load(file)
+            # return json.load(file)
+            for bank_account_properties in json.load(file)['bankAccountProperties']:
+                if bank_account_properties['bankAccountShortCode'] == self.bank_account_short_code:
+                    print(bank_account_properties['csvFileHasHeader']) 
+                    print(bank_account_properties['csvFileColumnTitles']) 
+                    print(bank_account_properties['csvFileColumns'])
+                    return bank_account_properties
+
+    def get_gl_account_for_search_string(self, search_string: str) -> str:
+        for determination in self.properties['accountDetermination']:
+            if determination['searchString'] in search_string:
+                return determination['glAccount']
+        return "GL account not found"
+    
+    def get_determination_for_search_string(self, search_string: str) -> dict:
+        for determination in self.properties['accountDetermination']:
+            if determination['searchString'] in search_string:
+                return determination
+        return {"message": "Determination not found"}
+    
 
 # Example usage
 # bank_account_properties = BankAccountProperties('BankAccountProperties.json')
@@ -55,32 +76,40 @@ class GLItem:
 # Represent the complete GL document as a list of GL items
 type GLItemList = list[GLItem]
 
-@dataclass
+# @dataclass
 class GLDocument:
+    bank_transaction_record: pd.Series
+    bank_account: BankAccount
     items: GLItemList
-    row: pd.Series
 
-    def __init__(self, row: pd.Series):
-        self.row = row
+    def __init__(self, bank_transaction_record: pd.Series, bank_account: BankAccount):
+        self.bank_transaction_record = bank_transaction_record
+        self.bank_account = bank_account
         self.items = []
         self._assign_transaction_id()
         self._fill_gl_item()
+        self._add_offsetting_gl_item()
 
     def _assign_transaction_id(self):
-        self.transaction_id = hashlib.sha256(f"{self.row.Date}{self.row.Amount}{self.row.Description}".encode()).hexdigest()
+        self.transaction_id = hashlib.sha256(f"{self.bank_transaction_record.Date}{self.bank_transaction_record.Amount}{self.bank_transaction_record.Description}".encode()).hexdigest()
 
     def _fill_gl_item(self):
         transaction_item_id = 1
-        transaction_date = self.row.Date
-        posting_year = int(transaction_date.split('-')[0])
-        posting_period = int(transaction_date.split('-')[1])
-        transaction_amount = Decimal(self.row.Amount)
+        transaction_date = self.bank_transaction_record.Date
+        posting_year = self.bank_transaction_record.Date.year
+        posting_period = self.bank_transaction_record.Date.month
+        transaction_amount = Decimal(self.bank_transaction_record.Amount)
         currency_unit = 'USD'
-        debit_credit_indicator = 'D' if self.row.Amount >= 0 else 'C'
-        transaction_description = self.row.Description
-        account_id = "TBD"  # This should be determined based on your logic
-        business_partner = "TBD"  # This should be determined based on your logic
-        origin = "TBD"  # This should be determined based on your logic
+        debit_credit_indicator = 'D' if self.bank_transaction_record.Amount >= 0 else 'C'
+        transaction_description = self.bank_transaction_record.Description
+
+        determination = self.bank_account.get_determination_for_search_string(transaction_description)
+        account_id = determination['glAccount']
+        business_partner = determination['bp']
+
+        origin = self.bank_account.properties['bankAccountShortCode']
+
+        # Check number if available...
 
         gl_item = GLItem(
             transaction_id=self.transaction_id,
@@ -97,6 +126,32 @@ class GLDocument:
             origin=origin
         )
         self.items.append(gl_item)
+        print(gl_item)
+
+    def _add_offsetting_gl_item(self):
+        offsetting_transaction_item_id = 2
+        offsetting_transaction_amount = -self.items[0].transaction_amount
+        offsetting_debit_credit_indicator = 'C' if self.items[0].debit_credit_indicator == 'D' else 'D'
+        offsetting_account_id = self.bank_account.properties['balanceSheetAccount']
+
+        offsetting_gl_item = GLItem(
+            transaction_id=self.transaction_id,
+            transaction_item_id=offsetting_transaction_item_id,
+            transaction_date=self.items[0].transaction_date,
+            posting_year=self.items[0].posting_year,
+            posting_period=self.items[0].posting_period,
+            transaction_amount=offsetting_transaction_amount,
+            currency_unit=self.items[0].currency_unit,
+            debit_credit_indicator=offsetting_debit_credit_indicator,
+            transaction_description=self.items[0].transaction_description,
+            account_id=offsetting_account_id,
+            business_partner=self.items[0].business_partner,
+            origin=self.items[0].origin
+        )
+        self.items.append(offsetting_gl_item)
+        print(offsetting_gl_item)
+
+
 
 # Example usage
 # Assuming df is your DataFrame and you are iterating over its rows
@@ -105,39 +160,46 @@ class GLDocument:
 #     print(gl_document.items)
 
 class BankCSVReader:
-    def __init__(self, bank_account_short_code: str, csv_file_path: str, bank_account_properties: BankAccountProperties):
+    def __init__(self, bank_account_short_code: str, csv_file_path: str, bank_account: BankAccount):
         self.bank_account_short_code = bank_account_short_code
         self.csv_file_path = csv_file_path
-        self.bank_account_properties = bank_account_properties
+        self.bank_account = bank_account
         self.bank_transaction_records = self._read_csv_file()
 
     def _read_csv_file(self):
-        #columns = self.bank_account_properties.properties[self.bank_account_short_code]['columns']
-        #columns_to_read = self.bank_account_properties.properties
-        for bank_account_details in self.bank_account_properties.properties['bankAccountProperties']:
-            if bank_account_details['bankAccountShortCode'] == self.bank_account_short_code:
-                print(bank_account_details['csvFileHasHeader']) 
-                print(bank_account_details['csvFileColumnTitles']) 
-                print(bank_account_details['csvFileColumns']) 
-            break
-
-        return pd.read_csv(self.csv_file_path, 
-                           usecols=bank_account_details['csvFileColumns'],
-                           names=bank_account_details['csvFileColumnTitles'],
+        print(self.bank_account.properties['csvFileHasHeader']) 
+        print(self.bank_account.properties['csvFileColumnTitles']) 
+        print(self.bank_account.properties['csvFileColumns'])
+        if self.bank_account.properties['csvFileHasHeader']:
+            return pd.read_csv(self.csv_file_path, 
+                           usecols=self.bank_account.properties['csvFileColumns'],
+                           names=self.bank_account.properties['csvFileColumnTitles'],
                            header=0,
-                           index_col=None, parse_dates=True
-                           ) if bank_account_details['csvFileHasHeader'] else pd.read_csv(self.csv_file_path, 
-                           usecols=bank_account_details['csvFileColumns'],
-                           names=bank_account_details['csvFileColumnTitles'],
-                           header=None,
-                           index_col=None, parse_dates=True
+                           index_col=None, 
+                           parse_dates=['Date'] 
                            )
+        else:
+            return pd.read_csv(self.csv_file_path, 
+                           usecols=self.bank_account.properties['csvFileColumns'],
+                           names=self.bank_account.properties['csvFileColumnTitles'],
+                           header=None,
+                           index_col=None, 
+                           parse_dates=['Date'] 
+                           )
+
         
 
-# Example usage
-bank_account_properties = BankAccountProperties('BankAccountProperties.json')
-csv_reader = BankCSVReader('WFC', 'Bank-Files/WFC-test.csv', bank_account_properties)
-print(csv_reader.df)
+# test the process for a single bank transaction record
+wfc_bank_account_properties = BankAccount(property_file_path='BankAccountProperties.json', bank_account_short_code='WFC')
+wfc_bank_transactions = BankCSVReader('WFC', 'Bank-Files/WFC-test.csv', wfc_bank_account_properties)
+print(wfc_bank_transactions.bank_transaction_records)
+
+for index, row in wfc_bank_transactions.bank_transaction_records.iterrows():
+    gl_document = GLDocument(row, wfc_bank_account_properties)
+    print(f"Processing transaction {index}")
+    print(gl_document.items)
+    if index >= 0:
+        break   # Just to limit the output
 
 # Thoughts: read bank account properties and filter for specific bank account short code
 # BankCSVReader only deals with the filtered bank account details
