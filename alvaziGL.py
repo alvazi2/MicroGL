@@ -147,6 +147,48 @@ class GLDocument:
         )
         self.items.append(offsetting_gl_item)
 
+    def insert_gl_items_into_db(self, db_path: str):
+        """
+        Inserts the GL items into the SQLite database.
+        
+        Args:
+            db_path (str): The path to the SQLite database file.
+        """
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+        for item in self.items:
+            cursor.execute('''
+                INSERT INTO gl_items (
+                    transaction_id,
+                    transaction_item_id,
+                    transaction_date,
+                    posting_year,
+                    posting_period,
+                    transaction_amount,
+                    currency_unit,
+                    debit_credit_indicator,
+                    transaction_description,
+                    account_id,
+                    business_partner,
+                    bank_account_code
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (
+                item.transaction_id,
+                item.transaction_item_id,
+                item.transaction_date,
+                item.posting_year,
+                item.posting_period,
+                float(item.transaction_amount),
+                item.currency_unit,
+                item.debit_credit_indicator,
+                item.transaction_description,
+                item.account_id,
+                item.business_partner,
+                item.bank_account_code
+            ))
+        conn.commit()
+        conn.close()
+
 
 class BankCSVReader:
     def __init__(self, bank_account_code: str, csv_file_path: str, bank_account: BankAccount):
@@ -176,7 +218,36 @@ class BankCSVReader:
                            parse_dates=['Date'] 
                            )
 
-        
+# Temporary: db setup
+def create_gl_table(db_path: str):
+    """
+    Creates the GL table in the SQLite database.
+    
+    Args:
+        db_path (str): The path to the SQLite database file.
+    """
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS gl_items (
+            transaction_id TEXT,
+            transaction_item_id TEXT,
+            transaction_date TEXT,
+            posting_year INTEGER,
+            posting_period INTEGER,
+            transaction_amount REAL,
+            currency_unit TEXT,
+            debit_credit_indicator TEXT,
+            transaction_description TEXT,
+            account_id TEXT,
+            business_partner TEXT,
+            bank_account_code TEXT
+        )
+    ''')
+    conn.commit()
+    conn.close()
+
+if 1 == 2: create_gl_table('alvaziGL-Data/alvaziGL.db')
 
 # test the process for a single bank transaction record
 wfc_bank_account_properties = BankAccount(property_file_path='BankAccountProperties.json', bank_account_code='WFC')
@@ -185,6 +256,7 @@ print(wfc_bank_transactions.bank_transaction_records)
 
 for index, bank_transaction in wfc_bank_transactions.bank_transaction_records.iterrows():
     gl_document = GLDocument(bank_transaction, wfc_bank_account_properties)
+    #gl_document.insert_gl_items_into_db(db_path)
     print(f"Processing transaction {index}")
     print(gl_document.items)
     if index >= 20:

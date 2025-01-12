@@ -7,6 +7,9 @@ Bank-Files/
 # Ignore GL files
 GL-Files/
 
+# Ignore GL data files
+alvazi-GL-Data/
+
 # Ignore JSON setting files
 *.json
 
