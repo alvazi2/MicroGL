@@ -24,15 +24,9 @@ class BankAccount:
                     print(bank_account_properties['csvFileColumnTitles']) 
                     print(bank_account_properties['csvFileColumns'])
                     return bank_account_properties
-
-    def get_gl_account_for_search_string(self, search_string: str) -> str:
-        for determination in self.properties['accountDetermination']:
-            if determination['searchString'] in search_string:
-                return determination['glAccount']
-        return "GL account not found"
-    
-    def get_determination_for_search_string(self, search_string: str) -> dict:
-        for determination in self.properties['accountDetermination']:
+   
+    def get_gl_mapping_for_search_string(self, search_string: str) -> dict:
+        for determination in self.properties['glMapping']:
             if determination['searchString'] in search_string:
                 return determination
         return {"message": "Determination not found"}
@@ -83,20 +77,33 @@ class GLDocument:
     items: GLItemList
 
     def __init__(self, bank_transaction_record: pd.Series, bank_account: BankAccount):
+        """
+        Initializes the GLDocument with a bank transaction record and a bank account.
+        
+        Args:
+            bank_transaction_record (pd.Series): The bank transaction record.
+            bank_account (BankAccount): The bank account associated with the transaction (property dictionary).
+        """
         self.bank_transaction_record = bank_transaction_record
         self.bank_account = bank_account
         self.items = []
         self._assign_transaction_id()
-        self._fill_gl_item()
+        self._add_gl_item()
         self._add_offsetting_gl_item()
 
     def _assign_transaction_id(self):
+        """
+        Assign a unique transaction ID by hashing the transaction details.
+        """
         self.transaction_id = hashlib.sha256(f"{self.bank_transaction_record.Date}{self.bank_transaction_record.Amount}{self.bank_transaction_record.Description}".encode()).hexdigest()
 
-    def _fill_gl_item(self):
-        determination = self.bank_account.get_determination_for_search_string(self.bank_transaction_record.Description)
+    def _add_gl_item(self):
+        """
+        Create GL item from bank transaction, for the revenue or expense account. Add to the items list.
+        """
+        gl_mapping = self.bank_account.get_gl_mapping_for_search_string(self.bank_transaction_record.Description)
         # need errror handling if determination is not found
-        
+
         # Check number if available...
 
         gl_item = GLItem(
@@ -107,16 +114,19 @@ class GLDocument:
             posting_period = self.bank_transaction_record.Date.month,
             transaction_amount = Decimal(self.bank_transaction_record.Amount),
             currency_unit = self.bank_account.properties['currencyUnit'],
-            debit_credit_indicator = 'D' if self.bank_transaction_record.Amount >= 0 else 'C',
+            debit_credit_indicator = 'C' if self.bank_transaction_record.Amount >= 0 else 'D',
             transaction_description = self.bank_transaction_record.Description,
-            account_id = determination['glAccount'],
-            business_partner = determination['bp'],
+            account_id = gl_mapping['glAccount'],
+            business_partner = gl_mapping['bp'],
             bank_account_code = self.bank_account.properties['bankAccountCode']
         )
         self.items.append(gl_item)
 
     def _add_offsetting_gl_item(self):
-        offsetting_transaction_item_id = '001'
+        """
+        Create offsetting GL item from bank transaction, for the bank balance sheet account. Add to the items list.
+        """
+        offsetting_transaction_item_id = '002'
         offsetting_transaction_amount = -self.items[0].transaction_amount
         offsetting_debit_credit_indicator = 'C' if self.items[0].debit_credit_indicator == 'D' else 'D'
         offsetting_account_id = self.bank_account.properties['balanceSheetAccount']
