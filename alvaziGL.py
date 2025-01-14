@@ -17,12 +17,8 @@ class BankAccount:
 
     def _read_json_file(self):
         with open(self.json_file_path, 'r') as file:
-            # return json.load(file)
             for bank_account_properties in json.load(file)['bankAccountProperties']:
                 if bank_account_properties['bankAccountCode'] == self.bank_account_code:
-                    print(bank_account_properties['csvFileHasHeader']) 
-                    print(bank_account_properties['csvFileColumnTitles']) 
-                    print(bank_account_properties['csvFileColumns'])
                     return bank_account_properties
    
     def get_gl_mapping_for_search_string(self, search_string: str) -> dict:
@@ -100,9 +96,21 @@ class GLDocument:
     def _add_gl_item(self):
         """
         Create GL item from bank transaction, for the revenue or expense account. Add to the items list.
+        Determination of D/C and sign of amount: 
+            Credit for revenue or transfer in: record as negative amount - indicated by positive amount in bank file
+            Debit for expenses or transfer out: record as positive amount - indicated by negative amount in bank file
+        As a consequence, the amount here has the opposite sign of the bank file transaction amount.
+        This method must be called before _add_offsetting_gl_item() as the latter is based on the outcome from here.
         """
         gl_mapping = self.bank_account.get_gl_mapping_for_search_string(self.bank_transaction_record.Description)
         # need errror handling if determination is not found
+
+        if self.bank_transaction_record.Amount >= 0:
+            # Credit for revenue or transfer in
+            debit_credit_indicator = 'C'
+        else:
+            # Debit for expenses or transfer out
+            debit_credit_indicator = 'D'
 
         # Check number if available...
 
@@ -112,9 +120,9 @@ class GLDocument:
             transaction_date = self.bank_transaction_record.Date,
             posting_year = self.bank_transaction_record.Date.year,
             posting_period = self.bank_transaction_record.Date.month,
-            transaction_amount = Decimal(self.bank_transaction_record.Amount),
+            transaction_amount = -Decimal(self.bank_transaction_record.Amount),
             currency_unit = self.bank_account.properties['currencyUnit'],
-            debit_credit_indicator = 'C' if self.bank_transaction_record.Amount >= 0 else 'D',
+            debit_credit_indicator = debit_credit_indicator,
             transaction_description = self.bank_transaction_record.Description,
             account_id = gl_mapping['glAccount'],
             business_partner = gl_mapping['bp'],
@@ -125,6 +133,9 @@ class GLDocument:
     def _add_offsetting_gl_item(self):
         """
         Create offsetting GL item from bank transaction, for the bank balance sheet account. Add to the items list.
+        Determination of D/C and sign of amount: 
+            Debit for deposit to bank account: record as positive amount (revenue or transfer in)
+            Credit for withdrawal from bank account: record as negative amount (expense or transfer out)
         """
         offsetting_transaction_item_id = '002'
         offsetting_transaction_amount = -self.items[0].transaction_amount
@@ -189,6 +200,24 @@ class GLDocument:
         conn.commit()
         conn.close()
 
+    def _gl_items_exist(self, db_path: str) -> bool:
+        """
+        Checks if GL items for the current transaction ID already exist in the database.
+        
+        Args:
+            db_path (str): The path to the SQLite database file.
+        
+        Returns:
+            bool: True if GL items exist, False otherwise.
+        """
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+        cursor.execute('''
+            SELECT COUNT(*) FROM gl_items WHERE transaction_id = ?
+        ''', (self.transaction_id,))
+        count = cursor.fetchone()[0]
+        conn.close()
+        return count > 0
 
 class BankCSVReader:
     def __init__(self, bank_account_code: str, csv_file_path: str, bank_account: BankAccount):
