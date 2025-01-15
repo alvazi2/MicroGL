@@ -15,8 +15,20 @@ import sqlite3  # To store the GL data in a database
 BANK_TRANSACTION_CATEGORIES = {"Deposit": "D", "Withdrawal": "C"}
 DC_INDICATORS = {"Debit": "D", "Credit": "C"}
 
-# Classes
 
+# Functions
+
+# Adapter functions to map decimals to integers for storage in SQLite
+# Adapter to convert Decimal to integer (scaled by 100)
+def adapt_decimal(d):
+    return int(d * 100)
+
+# Converter to convert integer back to Decimal (scaled by 100)
+def convert_decimal(i):
+    return Decimal(i) / 100
+
+
+# Classes
 
 class BankAccount:
     def __init__(self, property_file_path: str, bank_account_code: str):
@@ -234,7 +246,7 @@ class GLDocument:
                     item.transaction_date,
                     item.posting_year,
                     item.posting_period,
-                    float(item.transaction_amount),
+                    item.transaction_amount, # Store as integer (scaled by 100) via adapter
                     item.currency_unit,
                     item.debit_credit_indicator,
                     item.transaction_description,
@@ -301,11 +313,28 @@ class BankCSVReader:
                 parse_dates=["Date"],
             )
 
+class Database:
+    db_path: str
+    connection: sqlite3.Connection
+    cursor: sqlite3.Cursor
+
+    def __init__(self, db_path: str):
+        """
+        Initializes the Database Connection with a given database path.
+
+        Args:
+            db_path (str): The path to the SQLite database file.
+        """
+        self.db_path = db_path
+        self.connection = sqlite3.connect(self.db_path)
+        self.cursor = self.connection.cursor()
+
 
 # Temporary: db setup
 def create_gl_table(db_path: str):
     """
     Creates the GL table in the SQLite database.
+    Store transaction amounts with Python data type Decimal as integer (scaled by 100) via adapter
 
     Args:
         db_path (str): The path to the SQLite database file.
@@ -320,7 +349,7 @@ def create_gl_table(db_path: str):
             transaction_date TEXT,
             posting_year INTEGER,
             posting_period INTEGER,
-            transaction_amount REAL,
+            transaction_amount DECIMAL, 
             currency_unit TEXT,
             debit_credit_indicator TEXT,
             transaction_description TEXT,
@@ -334,7 +363,7 @@ def create_gl_table(db_path: str):
     conn.close()
 
 
-if 1 == 2:
+if 1 == 1:
     create_gl_table("alvaziGL-Data/alvaziGL.db")
 
 # test the process for a single bank transaction record
@@ -346,11 +375,19 @@ wfc_bank_transactions = BankCSVReader(
 )
 print(wfc_bank_transactions.bank_transaction_records)
 
+# Initialize the database (connection object)
+alvaziGL = Database("alvaziGL-Data/alvaziGL.db")
+
+# Register the adapter and converter
+sqlite3.register_adapter(Decimal, adapt_decimal)
+sqlite3.register_converter("DECIMAL", convert_decimal)
+
 for (
     index,
     bank_transaction,
 ) in wfc_bank_transactions.bank_transaction_records.iterrows():
     gl_document = GLDocument(bank_transaction, wfc_bank_account_properties)
+    # if not gl_document._gl_items_exist("alvaziGL-Data/alvaziGL.db"):
     # gl_document.insert_gl_items_into_db(db_path)
     print(f"Processing transaction {index}")
     print(gl_document.items)
