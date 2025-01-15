@@ -19,6 +19,7 @@ DC_INDICATORS = {"Debit": "D", "Credit": "C"}
 # Functions
 
 # Adapter functions to map decimals to integers for storage in SQLite
+
 # Adapter to convert Decimal to integer (scaled by 100)
 def adapt_decimal(d):
     return int(d * 100)
@@ -26,6 +27,14 @@ def adapt_decimal(d):
 # Converter to convert integer back to Decimal (scaled by 100)
 def convert_decimal(i):
     return Decimal(i) / 100
+
+# Adapter to convert datetime to string (YYYY-MM-DD)
+def adapt_date(date):
+    return date.strftime("%Y-%m-%d")
+
+# Converter to convert string (YYYY-MM-DD) back to datetime
+def convert_date(date_str):
+    return datetime.strptime(date_str, "%Y-%m-%d")
 
 
 # Classes
@@ -63,6 +72,68 @@ class BankAccount:
                     "glAccount": self.properties["missingGlMappingDefault"]["glAccountExpense"],
                     "bp": self.properties["missingGlMappingDefault"]["unknownBp"]
                     }            
+
+
+class Database:
+    db_path: str
+    connection: sqlite3.Connection
+    cursor: sqlite3.Cursor
+
+    def __init__(self, db_path: str):
+        """
+        Initializes the Database Connection with a given database path.
+
+        Args:
+            db_path (str): The path to the SQLite database file.
+        """
+        self.db_path = db_path
+        self.connection = sqlite3.connect(self.db_path)
+        self.cursor = self.connection.cursor()
+    
+    def commit(self):
+        """
+        Commits the current transaction.
+        """
+        self.connection.commit()
+    
+    def close(self):
+        """
+        Closes the database connection.
+        """
+        self.connection.close()
+
+
+# Temporary: db setup
+def create_gl_table(db_path: str):
+    """
+    Creates the GL table in the SQLite database.
+    Store transaction amounts with Python data type Decimal as integer (scaled by 100) via adapter
+
+    Args:
+        db_path (str): The path to the SQLite database file.
+    """
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS gl_items (
+            transaction_id TEXT,
+            transaction_item_id TEXT,
+            transaction_date DATE,
+            posting_year INTEGER,
+            posting_period INTEGER,
+            transaction_amount DECIMAL, 
+            currency_unit TEXT,
+            debit_credit_indicator TEXT,
+            transaction_description TEXT,
+            account_id TEXT,
+            business_partner TEXT,
+            bank_account_code TEXT
+        )
+    """
+    )
+    conn.commit()
+    conn.close()
 
 
 # Data types for GL data (GL document items)
@@ -170,7 +241,7 @@ class GLDocument:
         gl_item = GLItem(
             transaction_id=self.transaction_id,
             transaction_item_id="001",
-            transaction_date=self.bank_transaction_record.Date,
+            transaction_date=self.bank_transaction_record.Date.to_pydatetime(),
             posting_year=self.bank_transaction_record.Date.year,
             posting_period=self.bank_transaction_record.Date.month,
             transaction_amount=-Decimal(self.bank_transaction_record.Amount),
@@ -182,6 +253,7 @@ class GLDocument:
             bank_account_code=self.bank_account.properties["bankAccountCode"],
         )
         self.items.append(gl_item)
+        print(f"Transaction amount: {self.bank_transaction_record.Amount}")
 
     def _add_offsetting_gl_item(self):
         """
@@ -213,17 +285,15 @@ class GLDocument:
         )
         self.items.append(offsetting_gl_item)
 
-    def insert_gl_items_into_db(self, db_path: str):
+    def insert_gl_items_into_db(self, glDb: Database):
         """
         Inserts the GL items into the SQLite database.
 
         Args:
-            db_path (str): The path to the SQLite database file.
+            glDb (Database): database object for the GL database
         """
-        conn = sqlite3.connect(db_path)
-        cursor = conn.cursor()
         for item in self.items:
-            cursor.execute(
+            glDb.cursor.execute(
                 """
                 INSERT INTO gl_items (
                     transaction_id,
@@ -255,29 +325,25 @@ class GLDocument:
                     item.bank_account_code,
                 ),
             )
-        conn.commit()
-        conn.close()
+        glDb.commit()
 
-    def _gl_items_exist(self, db_path: str) -> bool:
+    def _gl_items_exist(self, glDb: Database) -> bool:
         """
         Checks if GL items for the current transaction ID already exist in the database.
 
         Args:
-            db_path (str): The path to the SQLite database file.
+            glDb (Database): database object for the GL database
 
         Returns:
             bool: True if GL items exist, False otherwise.
         """
-        conn = sqlite3.connect(db_path)
-        cursor = conn.cursor()
-        cursor.execute(
+        glDb.cursor.execute(
             """
             SELECT COUNT(*) FROM gl_items WHERE transaction_id = ?
         """,
             (self.transaction_id,),
         )
-        count = cursor.fetchone()[0]
-        conn.close()
+        count = glDb.cursor.fetchone()[0]
         return count > 0
 
 
@@ -313,55 +379,6 @@ class BankCSVReader:
                 parse_dates=["Date"],
             )
 
-class Database:
-    db_path: str
-    connection: sqlite3.Connection
-    cursor: sqlite3.Cursor
-
-    def __init__(self, db_path: str):
-        """
-        Initializes the Database Connection with a given database path.
-
-        Args:
-            db_path (str): The path to the SQLite database file.
-        """
-        self.db_path = db_path
-        self.connection = sqlite3.connect(self.db_path)
-        self.cursor = self.connection.cursor()
-
-
-# Temporary: db setup
-def create_gl_table(db_path: str):
-    """
-    Creates the GL table in the SQLite database.
-    Store transaction amounts with Python data type Decimal as integer (scaled by 100) via adapter
-
-    Args:
-        db_path (str): The path to the SQLite database file.
-    """
-    conn = sqlite3.connect(db_path)
-    cursor = conn.cursor()
-    cursor.execute(
-        """
-        CREATE TABLE IF NOT EXISTS gl_items (
-            transaction_id TEXT,
-            transaction_item_id TEXT,
-            transaction_date TEXT,
-            posting_year INTEGER,
-            posting_period INTEGER,
-            transaction_amount DECIMAL, 
-            currency_unit TEXT,
-            debit_credit_indicator TEXT,
-            transaction_description TEXT,
-            account_id TEXT,
-            business_partner TEXT,
-            bank_account_code TEXT
-        )
-    """
-    )
-    conn.commit()
-    conn.close()
-
 
 if 1 == 1:
     create_gl_table("alvaziGL-Data/alvaziGL.db")
@@ -376,23 +393,30 @@ wfc_bank_transactions = BankCSVReader(
 print(wfc_bank_transactions.bank_transaction_records)
 
 # Initialize the database (connection object)
-alvaziGL = Database("alvaziGL-Data/alvaziGL.db")
+alvaziGlDb = Database("alvaziGL-Data/alvaziGL.db")
 
 # Register the adapter and converter
 sqlite3.register_adapter(Decimal, adapt_decimal)
 sqlite3.register_converter("DECIMAL", convert_decimal)
+
+# Register the adapter and converter
+sqlite3.register_adapter(datetime, adapt_date)
+sqlite3.register_converter("DATE", convert_date)
 
 for (
     index,
     bank_transaction,
 ) in wfc_bank_transactions.bank_transaction_records.iterrows():
     gl_document = GLDocument(bank_transaction, wfc_bank_account_properties)
-    # if not gl_document._gl_items_exist("alvaziGL-Data/alvaziGL.db"):
-    # gl_document.insert_gl_items_into_db(db_path)
-    print(f"Processing transaction {index}")
+    print(f"---------- Processing transaction {index} ----------")
     print(gl_document.items)
+    if not gl_document._gl_items_exist(alvaziGlDb):
+        gl_document.insert_gl_items_into_db(alvaziGlDb)
     if index >= 20:
         break  # Just to limit the output
+
+# Close the database connection
+alvaziGlDb.close()
 
 # Thoughts: read bank account properties and filter for specific bank account code
 # BankCSVReader only deals with the filtered bank account details
