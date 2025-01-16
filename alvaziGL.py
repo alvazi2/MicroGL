@@ -14,6 +14,7 @@ import sqlite3  # To store the GL data in a database
 
 # Constants
 BANK_TRANSACTION_CATEGORIES = {"Deposit": "D", "Withdrawal": "C"}
+BANK_ACCOUNT_TYPES = {"Debit": "Debit", "Credit": "Credit"}  #Debit cards store expenses with negative amounts, credit cards with positive amounts
 DC_INDICATORS = {"Debit": "D", "Credit": "C"}
 GLDB_FILE_PATH = "alvaziGL-Data/alvaziGL.db"
 BANK_ACCOUNT_PROPERTIES_FILE_PATH = "BankAccountProperties.json"
@@ -202,10 +203,18 @@ class GLDocument:
         Returns:
             str: The category of the bank transaction.
         """
-        if self.bank_transaction_record.Amount >= 0:
-            return BANK_TRANSACTION_CATEGORIES["Deposit"]
+        # For debit cards (regular bank accounts), deposits are positive amounts, withdrawals are negative amounts in the bank file.
+        # For credit cards, deposits are negative amounts, card payments are positive amounts in the bank file.
+        if self.bank_account.properties["bankAccountType"] == BANK_ACCOUNT_TYPES["Debit"]:
+            if self.bank_transaction_record.Amount >= 0:
+                return BANK_TRANSACTION_CATEGORIES["Deposit"]
+            else:
+                return BANK_TRANSACTION_CATEGORIES["Withdrawal"]
         else:
-            return BANK_TRANSACTION_CATEGORIES["Withdrawal"]
+            if self.bank_transaction_record.Amount >= 0:
+                return BANK_TRANSACTION_CATEGORIES["Withdrawal"]
+            else:
+                return BANK_TRANSACTION_CATEGORIES["Deposit"]
         
     def _assign_transaction_id(self):
         """
