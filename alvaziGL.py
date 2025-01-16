@@ -8,13 +8,15 @@ from decimal import (
     Decimal,
 )  # To represent monetary values  https://docs.python.org/3/library/decimal.html
 from dataclasses import dataclass
+import os
 import hashlib  # To hash transaction details
 import sqlite3  # To store the GL data in a database
 
 # Constants
 BANK_TRANSACTION_CATEGORIES = {"Deposit": "D", "Withdrawal": "C"}
 DC_INDICATORS = {"Debit": "D", "Credit": "C"}
-
+GLDB_FILE_PATH = "alvaziGL-Data/alvaziGL.db"
+BANK_ACCOUNT_PROPERTIES_FILE_PATH = "BankAccountProperties.json"
 
 # Functions
 
@@ -50,6 +52,7 @@ class BankAccount:
             for bank_account_properties in json.load(file)["bankAccountProperties"]:
                 if bank_account_properties["bankAccountCode"] == self.bank_account_code:
                     return bank_account_properties
+        raise ValueError(f"No properties found for bank account code: {self.bank_account_code}")
 
     def get_gl_mapping_for_search_string(self, search_string: str, bank_transaction_category: str) -> dict:
         """
@@ -148,8 +151,7 @@ type DebitCreditIndicator = str  # 'D' or 'C'
 type TransactionDescription = str
 type AccountID = str
 type BusinessPartner = str
-type BankAccountCode = str  # The bank_account_codeal bank or credit card account that the transaction came from
-
+type BankAccountCode = str  # Code for bank or credit card account that the transaction came from
 
 @dataclass
 class GLItem:
@@ -346,6 +348,23 @@ class GLDocument:
         count = glDb.cursor.fetchone()[0]
         return count > 0
 
+class BankCSVIterator:
+    def __init__(self, folder_path: str):
+        self.folder_path = folder_path
+        self.files = [f for f in os.listdir(folder_path) if f.endswith('.csv')]
+        self.index = 0
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        if self.index < len(self.files):
+            file_name = self.files[self.index]
+            self.index += 1
+            bank_account_code = file_name.split('-')[0]  # Assuming the bank account code is the first part of the filename
+            return bank_account_code, os.path.join(self.folder_path, file_name)
+        else:
+            raise StopIteration
 
 class BankCSVReader:
     def __init__(
@@ -380,45 +399,71 @@ class BankCSVReader:
             )
 
 
-if 1 == 1:
-    create_gl_table("alvaziGL-Data/alvaziGL.db")
+class Main:
+    gldb_file_path: str
+    bank_account_properties_file_path: str
+    alvaziGl_db: Database
 
-# test the process for a single bank transaction record
-wfc_bank_account_properties = BankAccount(
-    property_file_path="BankAccountProperties.json", bank_account_code="WFC"
-)
-wfc_bank_transactions = BankCSVReader(
-    "WFC", "Bank-Files/WFC-test.csv", wfc_bank_account_properties
-)
-print(wfc_bank_transactions.bank_transaction_records)
+    def __init__(self, gldb_file_path: str, bank_account_properties_file_path: str):
+        self.gldb_file_path = gldb_file_path
+        self.bank_account_properties_file_path = bank_account_properties_file_path
 
-# Initialize the database (connection object)
-alvaziGlDb = Database("alvaziGL-Data/alvaziGL.db")
+        # Initialize the database (connection object)
+        self.alvaziGl_db = Database(GLDB_FILE_PATH)
 
-# Register the adapter and converter
-sqlite3.register_adapter(Decimal, adapt_decimal)
-sqlite3.register_converter("DECIMAL", convert_decimal)
+        # Register the adapter and converter for transaction amount
+        sqlite3.register_adapter(Decimal, adapt_decimal)
+        sqlite3.register_converter("DECIMAL", convert_decimal)
 
-# Register the adapter and converter
-sqlite3.register_adapter(datetime, adapt_date)
-sqlite3.register_converter("DATE", convert_date)
+        # Register the adapter and converter for transaction date
+        sqlite3.register_adapter(datetime, adapt_date)
+        sqlite3.register_converter("DATE", convert_date)
 
-for (
-    index,
-    bank_transaction,
-) in wfc_bank_transactions.bank_transaction_records.iterrows():
-    gl_document = GLDocument(bank_transaction, wfc_bank_account_properties)
-    print(f"---------- Processing transaction {index} ----------")
-    print(gl_document.items)
-    if not gl_document._gl_items_exist(alvaziGlDb):
-        gl_document.insert_gl_items_into_db(alvaziGlDb)
-    if index >= 20:
-        break  # Just to limit the output
+    def close(self):
+        """
+        Closes the database connection.
+        """
+        self.alvaziGl_db.close()
 
-# Close the database connection
-alvaziGlDb.close()
+    def process_bank_transaction_csv_files(self):
+        # Use BankCSVIterator to iterate over CSV files and print bank account codes and file paths
+        bank_csv_iterator = BankCSVIterator("Bank-Files")
+        for bank_account_code, csv_file_path in bank_csv_iterator:
+            print(f"Bank Account Code: {bank_account_code}, CSV File Path: {csv_file_path}")
+            try:
+                bank_account_properties = BankAccount(
+                    property_file_path=self.bank_account_properties_file_path,
+                    bank_account_code=bank_account_code
+                )
+            except ValueError as e:
+                print(f"Error: {e}")
+                continue
+            bank_transactions = BankCSVReader(
+                bank_account_code = bank_account_code, 
+                csv_file_path = csv_file_path, 
+                bank_account = bank_account_properties
+                )
+            self._record_bank_file_transactions_in_GL(bank_transactions)
 
-# Thoughts: read bank account properties and filter for specific bank account code
-# BankCSVReader only deals with the filtered bank account details
-# Goal is to have then a main class that completely processes a bank transaction CSV file
-# Need to also improve / enable error handling
+    def _record_bank_file_transactions_in_GL(self, bank_transactions: BankCSVReader):
+        for (
+            index,
+            bank_transaction,
+        ) in bank_transactions.bank_transaction_records.iterrows():
+            gl_document = GLDocument(bank_transaction, bank_transactions.bank_account)
+            print(f"---------- Processing transaction {index} : {bank_transaction.Amount} {gl_document.items[1].currency_unit}")
+            # print(gl_document.items)
+            if not gl_document._gl_items_exist(self.alvaziGl_db):
+                gl_document.insert_gl_items_into_db(self.alvaziGl_db)
+            #if index >= 20:
+            #    break
+
+
+
+if 1 == 2:
+    create_gl_table(GLDB_FILE_PATH)
+
+main_program = Main(GLDB_FILE_PATH, BANK_ACCOUNT_PROPERTIES_FILE_PATH)
+main_program.process_bank_transaction_csv_files()
+main_program.close()
+
