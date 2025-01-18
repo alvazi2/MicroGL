@@ -13,11 +13,14 @@ import hashlib  # To hash transaction details
 import sqlite3  # To store the GL data in a database
 
 # Constants
+GLDB_FILE_PATH = "alvaziGL_Data/alvaziGL.db"
+BANK_ACCOUNT_PROPERTIES_FILE_PATH = "BankAccountProperties.json"
+GLDB_GL_ITEMS_TABLE_NAME = "gl_items"
+BANK_FILES_FOLDER_PATH = "Bank_Files"
+
 BANK_TRANSACTION_CATEGORIES = {"Deposit": "D", "Withdrawal": "C"}
 BANK_ACCOUNT_TYPES = {"Debit": "Debit", "Credit": "Credit"}  #Debit cards store expenses with negative amounts, credit cards with positive amounts
 DC_INDICATORS = {"Debit": "D", "Credit": "C"}
-GLDB_FILE_PATH = "alvaziGL-Data/alvaziGL.db"
-BANK_ACCOUNT_PROPERTIES_FILE_PATH = "BankAccountProperties.json"
 
 # Functions
 
@@ -106,38 +109,43 @@ class Database:
         """
         self.connection.close()
 
-
-# Temporary: db setup
-def create_gl_table(db_path: str):
-    """
-    Creates the GL table in the SQLite database.
-    Store transaction amounts with Python data type Decimal as integer (scaled by 100) via adapter
-
-    Args:
-        db_path (str): The path to the SQLite database file.
-    """
-    conn = sqlite3.connect(db_path)
-    cursor = conn.cursor()
-    cursor.execute(
+    def drop_table(self, table_name: str):
         """
-        CREATE TABLE IF NOT EXISTS gl_items (
-            transaction_id TEXT,
-            transaction_item_id TEXT,
-            transaction_date DATE,
-            posting_year INTEGER,
-            posting_period INTEGER,
-            transaction_amount DECIMAL, 
-            currency_unit TEXT,
-            debit_credit_indicator TEXT,
-            transaction_description TEXT,
-            account_id TEXT,
-            business_partner TEXT,
-            bank_account_code TEXT
+        Drops the specified table from the database.
+
+        Args:
+            table_name (str): The name of the table to drop.
+        """
+        self.cursor.execute(f"DROP TABLE IF EXISTS {table_name}")
+        self.connection.commit()
+
+    def create_gl_table(self, table_name: str):
+        """
+        Creates the GL table in the SQLite database.
+        Store transaction amounts with Python data type Decimal as integer (scaled by 100) via adapter
+
+        Args:
+            table_name (str): The name of the table to create.
+        """
+        self.cursor.execute(
+            f"""
+            CREATE TABLE IF NOT EXISTS {table_name} (
+                transaction_id TEXT,
+                transaction_item_id TEXT,
+                transaction_date DATE,
+                posting_year INTEGER,
+                posting_period INTEGER,
+                transaction_amount DECIMAL, 
+                currency_unit TEXT,
+                debit_credit_indicator TEXT,
+                transaction_description TEXT,
+                account_id TEXT,
+                business_partner TEXT,
+                bank_account_code TEXT
+            )
+            """
         )
-    """
-    )
-    conn.commit()
-    conn.close()
+        self.connection.commit()
 
 
 # Data types for GL data (GL document items)
@@ -221,7 +229,8 @@ class GLDocument:
         Assign a unique transaction ID by hashing the transaction details.
         """
         self.transaction_id = hashlib.sha256(
-            f"{self.bank_transaction_record.Date}{self.bank_transaction_record.Amount}{self.bank_transaction_record.Description}".encode()
+            f"{self.bank_transaction_record.Date}{self.bank_transaction_record.Amount}\
+                {self.bank_transaction_record.Description}{self.bank_account.properties['bankAccountCode']}".encode()
         ).hexdigest()
 
     def _add_gl_item(self):
@@ -305,8 +314,8 @@ class GLDocument:
         """
         for item in self.items:
             glDb.cursor.execute(
-                """
-                INSERT INTO gl_items (
+                f"""
+                INSERT INTO {GLDB_GL_ITEMS_TABLE_NAME} (
                     transaction_id,
                     transaction_item_id,
                     transaction_date,
@@ -349,8 +358,8 @@ class GLDocument:
             bool: True if GL items exist, False otherwise.
         """
         glDb.cursor.execute(
-            """
-            SELECT COUNT(*) FROM gl_items WHERE transaction_id = ?
+            f"""
+            SELECT COUNT(*) FROM {GLDB_GL_ITEMS_TABLE_NAME} WHERE transaction_id = ?
         """,
             (self.transaction_id,),
         )
@@ -384,10 +393,30 @@ class BankCSVReader:
         self.bank_account = bank_account
         self.bank_transaction_records = self._read_csv_file()
 
+    def _derive_date_format(self, date_format_string: str) -> str:
+        """
+        Derives the Python date format from a format string based on YYYY MM DD format string.
+
+        Args:
+        date_format_string (str): The date format string (e.g., "YYYY-MM-DD").
+
+        Returns:
+        str: The corresponding Python date format string (e.g., "%Y-%m-%d").
+        """
+        format_mappings = {
+        "YYYY": "%Y",
+        "YY": "%y",
+        "MM": "%m",
+        "DD": "%d"
+        }
+        for key, value in format_mappings.items():
+            date_format_string = date_format_string.replace(key, value)
+        return date_format_string
+
     def _read_csv_file(self):
-        print(self.bank_account.properties["csvFileHasHeader"])
-        print(self.bank_account.properties["csvFileColumnTitles"])
-        print(self.bank_account.properties["csvFileColumns"])
+        print(f"csvFileHasHeader: {self.bank_account.properties["csvFileHasHeader"]}")
+        print(f"csvFileColumnTitles: {self.bank_account.properties["csvFileColumnTitles"]}")
+        print(f"csvFileColumns: {self.bank_account.properties["csvFileColumns"]}")
         if self.bank_account.properties["csvFileHasHeader"]:
             return pd.read_csv(
                 self.csv_file_path,
@@ -396,6 +425,7 @@ class BankCSVReader:
                 header=0,
                 index_col=None,
                 parse_dates=["Date"],
+                date_format=self._derive_date_format(self.bank_account.properties["dateFormat"])
             )
         else:
             return pd.read_csv(
@@ -405,6 +435,7 @@ class BankCSVReader:
                 header=None,
                 index_col=None,
                 parse_dates=["Date"],
+                date_format=self._derive_date_format(self.bank_account.properties["dateFormat"])
             )
 
 
@@ -428,6 +459,13 @@ class Main:
         sqlite3.register_adapter(datetime, adapt_date)
         sqlite3.register_converter("DATE", convert_date)
 
+    def refresh_db(self):
+        """
+        Drops the GL items table and recreates it.
+        """
+        self.alvaziGl_db.drop_table(GLDB_GL_ITEMS_TABLE_NAME)
+        self.alvaziGl_db.create_gl_table(GLDB_GL_ITEMS_TABLE_NAME)
+
     def close(self):
         """
         Closes the database connection.
@@ -436,7 +474,7 @@ class Main:
 
     def process_bank_transaction_csv_files(self):
         # Use BankCSVIterator to iterate over CSV files and print bank account codes and file paths
-        bank_csv_iterator = BankCSVIterator("Bank-Files")
+        bank_csv_iterator = BankCSVIterator(BANK_FILES_FOLDER_PATH)
         for bank_account_code, csv_file_path in bank_csv_iterator:
             print(f"Bank Account Code: {bank_account_code}, CSV File Path: {csv_file_path}")
             try:
@@ -460,19 +498,18 @@ class Main:
             bank_transaction,
         ) in bank_transactions.bank_transaction_records.iterrows():
             gl_document = GLDocument(bank_transaction, bank_transactions.bank_account)
-            print(f"---------- Processing transaction {index} : {bank_transaction.Amount} {gl_document.items[1].currency_unit}")
+            print(f"--- Processing transaction {index} : {bank_transaction.Amount} {gl_document.items[1].currency_unit} / {gl_document.items[0].account_id} - {gl_document.items[1].account_id}")
             # print(gl_document.items)
             if not gl_document._gl_items_exist(self.alvaziGl_db):
                 gl_document.insert_gl_items_into_db(self.alvaziGl_db)
             #if index >= 20:
             #    break
 
-
-
-if 1 == 2:
-    create_gl_table(GLDB_FILE_PATH)
+# Main program:
+# Create Main object, refresh the database, process the bank transaction CSV files, and close the database connection
 
 main_program = Main(GLDB_FILE_PATH, BANK_ACCOUNT_PROPERTIES_FILE_PATH)
+main_program.refresh_db()
 main_program.process_bank_transaction_csv_files()
 main_program.close()
 

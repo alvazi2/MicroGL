@@ -3,12 +3,15 @@
 
 # Ignore bank files
 Bank-Files/
+Bank_Files/
 
 # Ignore GL files
 GL-Files/
+GL_Files/
 
 # Ignore GL data files
 alvaziGL-Data/
+alvaziGL_Data/
 
 # Ignore JSON setting files
 *.json
