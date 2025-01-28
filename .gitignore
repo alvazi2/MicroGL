@@ -18,6 +18,7 @@ alvaziGL_Data/
 
 # Mac technical (not sure why these are there)
 .DS_Store
+.sesskey
 
 # ---------------------------------------------
 # Below is from standard GitHub Python template
