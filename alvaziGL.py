@@ -1,21 +1,24 @@
 # Alvazi micro GL processor
 
 # Libraries
+import json
 from bank_account import BankAccount
 from database import Database
 from gl_item import GLItem
 from gl_document import GLDocument
 from bank_csv_reader import BankCSVIterator, BankCSVReader
 
-# Constants
-GLDB_FILE_PATH = "alvaziGL_Data/alvaziGL.db"
-BANK_ACCOUNT_PROPERTIES_FILE_PATH = "BankAccountProperties.json"
-GLDB_GL_ITEMS_TABLE_NAME = "gl_items"
-BANK_FILES_FOLDER_PATH = "Bank_Files"
+# Config class to load constants from JSON file
+class Config:
+    def __init__(self, config_file_path: str):
+        with open(config_file_path, 'r') as file:
+            self.config = json.load(file)
+    
+    def get(self, key: str):
+        return self.config.get(key)
 
-BANK_TRANSACTION_CATEGORIES = {"Deposit": "D", "Withdrawal": "C"}
-BANK_ACCOUNT_TYPES = {"Debit": "Debit", "Credit": "Credit"}  #Debit cards store expenses with negative amounts, credit cards with positive amounts
-DC_INDICATORS = {"Debit": "D", "Credit": "C"}
+# Load configuration
+config = Config('constants.json')
 
 # Main program logic
 class Main:
@@ -28,14 +31,14 @@ class Main:
         self.bank_account_properties_file_path = bank_account_properties_file_path
 
         # Initialize the database (connection object)
-        self.alvaziGl_db = Database(GLDB_FILE_PATH)
+        self.alvaziGl_db = Database(config.get("gldbFilePath"))
 
     def refresh_db(self):
         """
         Drops the GL items table and recreates it.
         """
-        self.alvaziGl_db.drop_table(GLDB_GL_ITEMS_TABLE_NAME)
-        self.alvaziGl_db.create_gl_table(GLDB_GL_ITEMS_TABLE_NAME)
+        self.alvaziGl_db.drop_table(config.get("gldbGlItemsTableName"))
+        self.alvaziGl_db.create_gl_table(config.get("gldbGlItemsTableName"))
 
     def close(self):
         """
@@ -45,7 +48,7 @@ class Main:
 
     def process_bank_transaction_csv_files(self):
         # Use BankCSVIterator to iterate over CSV files and print bank account codes and file paths
-        bank_csv_iterator = BankCSVIterator(BANK_FILES_FOLDER_PATH)
+        bank_csv_iterator = BankCSVIterator(config.get("bankFilesFolderPath"))
         for bank_account_code, csv_file_path in bank_csv_iterator:
             print(f"Bank Account Code: {bank_account_code}, CSV File Path: {csv_file_path}")
             try:
@@ -77,7 +80,7 @@ class Main:
 # Create Main object, refresh the database, process the bank transaction CSV files, and close the database connection
 
 if __name__ == "__main__":
-    main_program = Main(GLDB_FILE_PATH, BANK_ACCOUNT_PROPERTIES_FILE_PATH)
+    main_program = Main(config.get("gldbFilePath"), config.get("bankAccountPropertiesFilePath"))
     main_program.refresh_db()
     main_program.process_bank_transaction_csv_files()
     main_program.close()
