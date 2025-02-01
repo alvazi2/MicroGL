@@ -17,30 +17,27 @@ class Config:
     def get(self, key: str):
         return self.config.get(key)
 
-# Load configuration
-config = Config('constants.json')
-
 # Main program logic
 class Main:
     gldb_file_path: str
     bank_account_properties_file_path: str
     alvaziGl_db: Database
+    config: Config
 
-    def __init__(self, gldb_file_path: str, bank_account_properties_file_path: str):
-        self.gldb_file_path = gldb_file_path
-        self.bank_account_properties_file_path = bank_account_properties_file_path
+    def __init__(self):
+        self.config = Config('constants.json')
+        self.gldb_file_path = self.config.get('gldb_file_path')
+        self.bank_account_properties_file_path = self.config.get('bank_account_properties_file_path')
+        self.alvaziGl_db = Database(self.gldb_file_path)
 
-        # Initialize the database (connection object)
-        self.alvaziGl_db = Database(config.get("gldbFilePath"))
-
-    def refresh_db(self):
+    def refresh_gl_items_table(self):
         """
         Drops the GL items table and recreates it.
         """
-        self.alvaziGl_db.drop_table(config.get("gldbGlItemsTableName"))
-        self.alvaziGl_db.create_gl_table(config.get("gldbGlItemsTableName"))
+        self.alvaziGl_db.drop_table(self.config.get("gldbGlItemsTableName"))
+        self.alvaziGl_db.create_gl_table(self.config.get("gldbGlItemsTableName"))
 
-    def close(self):
+    def close_gldb(self):
         """
         Closes the database connection.
         """
@@ -48,7 +45,7 @@ class Main:
 
     def process_bank_transaction_csv_files(self):
         # Use BankCSVIterator to iterate over CSV files and print bank account codes and file paths
-        bank_csv_iterator = BankCSVIterator(config.get("bankFilesFolderPath"))
+        bank_csv_iterator = BankCSVIterator(self.config.get("bankFilesFolderPath"))
         for bank_account_code, csv_file_path in bank_csv_iterator:
             print(f"Bank Account Code: {bank_account_code}, CSV File Path: {csv_file_path}")
             try:
@@ -80,8 +77,8 @@ class Main:
 # Create Main object, refresh the database, process the bank transaction CSV files, and close the database connection
 
 if __name__ == "__main__":
-    main_program = Main(config.get("gldbFilePath"), config.get("bankAccountPropertiesFilePath"))
-    main_program.refresh_db()
-    main_program.process_bank_transaction_csv_files()
-    main_program.close()
+    main = Main()
+    main.refresh_gl_items_table()
+    main.process_bank_transaction_csv_files()
+    main.close_gldb()
 
