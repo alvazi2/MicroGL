@@ -7,13 +7,13 @@ def adapt_decimal(d):
     return int(d * 100)
 
 def convert_decimal(i):
-    return Decimal(i) / 100
+    return Decimal(i.decode('utf-8')) / 100
 
 def adapt_date(date):
     return date.strftime("%Y-%m-%d")
 
 def convert_date(date_str):
-    return datetime.strptime(date_str, "%Y-%m-%d")
+    return datetime.strptime(date_str.decode('utf-8'), "%Y-%m-%d")
 
 class Database:
     db_path: str

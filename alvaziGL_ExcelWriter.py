@@ -1,8 +1,7 @@
-import sqlite3
 import pandas as pd
-from decimal import Decimal
 from openpyxl import load_workbook
 from openpyxl.worksheet.table import Table, TableStyleInfo
+from database import Database
 
 DB_PATH = 'alvaziGL_Data/alvaziGL.db'
 YEAR = '2024'
@@ -10,24 +9,16 @@ EXCEL_PATH = 'alvaziGL_Data/alvaziGL.xlsx'
 SHEET_NAME = '2024'
 TABLE_NAME = 'Transactions2024'
 
-# Adapter to convert Decimal to integer (scaled by 100)
-def adapt_decimal(d):
-    return int(d * 100)
-
-# Converter to convert integer back to Decimal (scaled by 100)
-def convert_decimal(i):
-    return Decimal(i.decode('utf-8')) / 100
-
 def write_data_to_excel(db_path, year, excel_path, sheet_name, table_name):
-    # Connect to the SQLite database
-    conn = sqlite3.connect(db_path, detect_types=sqlite3.PARSE_DECLTYPES)
+    # Initialize the database
+    db = Database(db_path)
     
     # Query the data for the specified year
-    query = f"SELECT * FROM gl_items WHERE posting_year = '{year}'"
-    df = pd.read_sql_query(query, conn)
+    query = f"SELECT * FROM gl_items WHERE posting_year = ?"
+    df = pd.read_sql_query(query, db.connection, params=(year,))
     
     # Close the database connection
-    conn.close()
+    db.close()
     
     # Load the existing workbook
     book = load_workbook(excel_path)
@@ -68,8 +59,4 @@ def write_data_to_excel(db_path, year, excel_path, sheet_name, table_name):
     # Save the workbook
     book.save(excel_path)
 
-# Register the adapter and converter for transaction amount
-sqlite3.register_adapter(Decimal, adapt_decimal)
-sqlite3.register_converter("DECIMAL", convert_decimal)
-    
 write_data_to_excel(DB_PATH, YEAR, EXCEL_PATH, SHEET_NAME, TABLE_NAME)
