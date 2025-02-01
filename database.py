@@ -21,6 +21,8 @@ class Database:
     cursor: sqlite3.Cursor
 
     def __init__(self, db_path: str):
+        if not db_path:
+            raise ValueError("db_path must be a valid string representing the path to the database file.")
         self.db_path = db_path
         self.connection = sqlite3.connect(self.db_path, detect_types=sqlite3.PARSE_DECLTYPES)
         self.cursor = self.connection.cursor()

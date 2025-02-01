@@ -15,53 +15,55 @@ class Config:
             self.config = json.load(file)
     
     def get(self, key: str):
-        return self.config.get(key)
+        if key not in self.config:
+            raise KeyError(f"Key '{key}' not found in configuration.")
+        return self.config[key]
 
 # Main program logic
 class Main:
-    gldb_file_path: str
-    bank_account_properties_file_path: str
-    alvaziGl_db: Database
+    gldbFilePath: str
+    bankAccountPropertiesFilePath: str
+    alvaziGlDb: Database
     config: Config
 
     def __init__(self):
         self.config = Config('constants.json')
-        self.gldb_file_path = self.config.get('gldb_file_path')
-        self.bank_account_properties_file_path = self.config.get('bank_account_properties_file_path')
-        self.alvaziGl_db = Database(self.gldb_file_path)
+        self.gldbFilePath = self.config.get('gldbFilePath')
+        self.bankAccountPropertiesFilePath = self.config.get('bankAccountPropertiesFilePath')
+        self.alvaziGlDb = Database(self.gldbFilePath)
 
-    def refresh_gl_items_table(self):
+    def refreshGlItemsTable(self):
         """
         Drops the GL items table and recreates it.
         """
-        self.alvaziGl_db.drop_table(self.config.get("gldbGlItemsTableName"))
-        self.alvaziGl_db.create_gl_table(self.config.get("gldbGlItemsTableName"))
+        self.alvaziGlDb.drop_table(self.config.get("gldbGlItemsTableName"))
+        self.alvaziGlDb.create_gl_table(self.config.get("gldbGlItemsTableName"))
 
-    def close_gldb(self):
+    def closeGldb(self):
         """
         Closes the database connection.
         """
-        self.alvaziGl_db.close()
+        self.alvaziGlDb.close()
 
-    def process_bank_transaction_csv_files(self):
+    def processBankTransactionCsvFiles(self):
         # Use BankCSVIterator to iterate over CSV files and print bank account codes and file paths
-        bank_csv_iterator = BankCSVIterator(self.config.get("bankFilesFolderPath"))
-        for bank_account_code, csv_file_path in bank_csv_iterator:
-            print(f"Bank Account Code: {bank_account_code}, CSV File Path: {csv_file_path}")
+        bankCsvIterator = BankCSVIterator(self.config.get("bankFilesFolderPath"))
+        for bankAccountCode, csvFilePath in bankCsvIterator:
+            print(f"Bank Account Code: {bankAccountCode}, CSV File Path: {csvFilePath}")
             try:
-                bank_account_properties = BankAccount(
-                    property_file_path=self.bank_account_properties_file_path,
-                    bank_account_code=bank_account_code
+                bankAccountProperties = BankAccount(
+                    property_file_path=self.bankAccountPropertiesFilePath,
+                    bank_account_code=bankAccountCode
                 )
             except ValueError as e:
                 print(f"Error: {e}")
                 continue
-            bank_transactions = BankCSVReader(
-                bank_account_code = bank_account_code, 
-                csv_file_path = csv_file_path, 
-                bank_account = bank_account_properties
+            bankTransactions = BankCSVReader(
+                bank_account_code = bankAccountCode, 
+                csv_file_path = csvFilePath, 
+                bank_account = bankAccountProperties
                 )
-            self._record_bank_file_transactions_in_GL(bank_transactions)
+            self._record_bank_file_transactions_in_GL(bankTransactions)
 
     def _record_bank_file_transactions_in_GL(self, bank_transactions: BankCSVReader):
         for (
@@ -70,15 +72,15 @@ class Main:
         ) in bank_transactions.bank_transaction_records.iterrows():
             gl_document = GLDocument(bank_transaction, bank_transactions.bank_account)
             print(f"--- Processing transaction {index} : {bank_transaction.Amount} {gl_document.items[1].currency_unit} / {gl_document.items[0].account_id} - {gl_document.items[1].account_id}")
-            if not gl_document._gl_items_exist(self.alvaziGl_db):
-                gl_document.insert_gl_items_into_db(self.alvaziGl_db)
+            if not gl_document._gl_items_exist(self.alvaziGlDb):
+                gl_document.insert_gl_items_into_db(self.alvaziGlDb)
 
 # Main program:
 # Create Main object, refresh the database, process the bank transaction CSV files, and close the database connection
 
 if __name__ == "__main__":
     main = Main()
-    main.refresh_gl_items_table()
-    main.process_bank_transaction_csv_files()
-    main.close_gldb()
+    main.refreshGlItemsTable()
+    main.processBankTransactionCsvFiles()
+    main.closeGldb()
 
