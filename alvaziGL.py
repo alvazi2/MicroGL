@@ -74,8 +74,12 @@ class Main:
             index,
             bank_transaction,
         ) in bank_transactions.bank_transaction_records.iterrows():
-            gl_document = GLDocument(bank_transaction, bank_transactions.bank_account)
-            print(f"--- Processing transaction {index} : {bank_transaction.Amount} {gl_document.items[1].currency_unit} / {gl_document.items[0].account_id} - {gl_document.items[1].account_id}")
+            try:
+                gl_document = GLDocument(bank_transaction, bank_transactions.bank_account)
+            except ValueError as e:
+                print(f"Error processing transaction {index} / {bank_transaction.Amount} {bank_transaction.Description} : {e}")
+                continue
+            print(f"--- Processing transaction {index} {bank_transaction.Amount} {bank_transaction.Description} : {gl_document.items[1].currency_unit} / {gl_document.items[0].account_id} - {gl_document.items[1].account_id}")
             if not gl_document._gl_items_exist(self.alvaziGlDb):
                 gl_document.insert_gl_items_into_db(self.alvaziGlDb)
 

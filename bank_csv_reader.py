@@ -26,6 +26,7 @@ class BankCSVReader:
         self.csv_file_path = csv_file_path
         self.bank_account = bank_account
         self.bank_transaction_records = self._read_csv_file()
+        self._filter_bank_records()
 
     def _derive_date_format(self, date_format_string: str) -> str:
         format_mappings = {
@@ -62,3 +63,9 @@ class BankCSVReader:
                 parse_dates=["Date"],
                 date_format=self._derive_date_format(self.bank_account.properties["dateFormat"])
             )
+
+    def _filter_bank_records(self):
+        filter_strings = self.bank_account.properties.get("bankRecordFilterStrings", [])
+        if filter_strings:
+            pattern = '|'.join(filter_strings)
+            self.bank_transaction_records = self.bank_transaction_records[~self.bank_transaction_records['Description'].str.contains(pattern, na=False)]

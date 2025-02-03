@@ -17,7 +17,8 @@ class BankAccount:
         for gl_mapping in self.properties["glMapping"]:
             if gl_mapping["searchString"] in search_string:
                 return gl_mapping
-
+        
+        # If no mapping found, return the default mapping
         if bank_transaction_category == "D":
             return {
                 "searchString": search_string,

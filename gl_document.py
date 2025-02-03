@@ -37,7 +37,7 @@ class GLDocument:
             self.bank_transaction_record.Description, 
             self.bank_transaction_category
         )
-
+               
         if self.bank_transaction_record.Amount >= 0:
             debit_credit_indicator = "C"
         else:
