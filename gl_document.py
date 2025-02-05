@@ -43,6 +43,9 @@ class GLDocument:
         else:
             debit_credit_indicator = "D"
 
+        investment_name = getattr(self.bank_transaction_record, 'Investment', None)
+        investment_symbol = getattr(self.bank_transaction_record, 'Symbol', None)
+
         gl_item = GLItem(
             transaction_id=self.transaction_id,
             transaction_item_id="001",
@@ -56,6 +59,8 @@ class GLDocument:
             account_id=gl_mapping["glAccount"],
             business_partner=gl_mapping["bp"],
             bank_account_code=self.bank_account.properties["bankAccountCode"],
+            investment_name=investment_name,
+            investment_symbol=investment_symbol
         )
         self.items.append(gl_item)
 
@@ -80,6 +85,8 @@ class GLDocument:
             account_id=offsetting_account_id,
             business_partner=self.items[0].business_partner,
             bank_account_code=self.items[0].bank_account_code,
+            investment_name=self.items[0].investment_name,
+            investment_symbol=self.items[0].investment_symbol
         )
         self.items.append(offsetting_gl_item)
 
@@ -99,8 +106,10 @@ class GLDocument:
                     transaction_description,
                     account_id,
                     business_partner,
-                    bank_account_code
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    bank_account_code,
+                    investment_name,
+                    investment_symbol
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
                 (
                     item.transaction_id,
@@ -115,6 +124,8 @@ class GLDocument:
                     item.account_id,
                     item.business_partner,
                     item.bank_account_code,
+                    item.investment_name,
+                    item.investment_symbol
                 ),
             )
         glDb.commit()

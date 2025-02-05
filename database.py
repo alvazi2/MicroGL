@@ -60,7 +60,10 @@ class Database:
                 transaction_description TEXT,
                 account_id TEXT,
                 business_partner TEXT,
-                bank_account_code TEXT
+                bank_account_code TEXT,
+                investment_name TEXT,
+                investment_symbol TEXT,
+                PRIMARY KEY (transaction_id, transaction_item_id)
             )
             """
         )

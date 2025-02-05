@@ -15,3 +15,5 @@ class GLItem:
     account_id: str
     business_partner: str
     bank_account_code: str
+    investment_name: str
+    investment_symbol: str
