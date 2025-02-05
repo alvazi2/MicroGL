@@ -63,6 +63,7 @@ class Database:
                 bank_account_code TEXT,
                 investment_name TEXT,
                 investment_symbol TEXT,
+                check_no TEXT,
                 PRIMARY KEY (transaction_id, transaction_item_id)
             )
             """

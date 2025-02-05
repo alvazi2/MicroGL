@@ -51,7 +51,8 @@ class BankCSVReader:
                 header=0,
                 index_col=None,
                 parse_dates=["Date"],
-                date_format=self._derive_date_format(self.bank_account.properties["dateFormat"])
+                date_format=self._derive_date_format(self.bank_account.properties["dateFormat"]),
+                dtype={"CheckNo": str}  # Ensure CheckNo is read as a string
             )
         else:
             return pd.read_csv(
@@ -61,7 +62,8 @@ class BankCSVReader:
                 header=None,
                 index_col=None,
                 parse_dates=["Date"],
-                date_format=self._derive_date_format(self.bank_account.properties["dateFormat"])
+                date_format=self._derive_date_format(self.bank_account.properties["dateFormat"]),
+                dtype={"CheckNo": str}  # Ensure CheckNo is read as a string
             )
 
     def _filter_bank_records(self):

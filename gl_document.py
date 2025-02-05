@@ -45,6 +45,7 @@ class GLDocument:
 
         investment_name = getattr(self.bank_transaction_record, 'Investment', None)
         investment_symbol = getattr(self.bank_transaction_record, 'Symbol', None)
+        check_no = getattr(self.bank_transaction_record, 'CheckNo', None)
 
         gl_item = GLItem(
             transaction_id=self.transaction_id,
@@ -60,7 +61,8 @@ class GLDocument:
             business_partner=gl_mapping["bp"],
             bank_account_code=self.bank_account.properties["bankAccountCode"],
             investment_name=investment_name,
-            investment_symbol=investment_symbol
+            investment_symbol=investment_symbol,
+            check_no=check_no
         )
         self.items.append(gl_item)
 
@@ -86,7 +88,8 @@ class GLDocument:
             business_partner=self.items[0].business_partner,
             bank_account_code=self.items[0].bank_account_code,
             investment_name=self.items[0].investment_name,
-            investment_symbol=self.items[0].investment_symbol
+            investment_symbol=self.items[0].investment_symbol,
+            check_no=self.items[0].check_no
         )
         self.items.append(offsetting_gl_item)
 
@@ -108,8 +111,9 @@ class GLDocument:
                     business_partner,
                     bank_account_code,
                     investment_name,
-                    investment_symbol
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    investment_symbol,
+                    check_no
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
                 (
                     item.transaction_id,
@@ -125,7 +129,8 @@ class GLDocument:
                     item.business_partner,
                     item.bank_account_code,
                     item.investment_name,
-                    item.investment_symbol
+                    item.investment_symbol,
+                    item.check_no
                 ),
             )
         glDb.commit()

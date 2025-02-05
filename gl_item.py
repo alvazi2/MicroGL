@@ -17,3 +17,4 @@ class GLItem:
     bank_account_code: str
     investment_name: str
     investment_symbol: str
+    check_no: str
