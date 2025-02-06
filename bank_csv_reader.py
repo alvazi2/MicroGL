@@ -1,6 +1,7 @@
 import os
 import pandas as pd
 from bank_account import BankAccount
+from decimal import Decimal
 
 class BankCSVIterator:
     def __init__(self, folder_path: str):
@@ -44,7 +45,7 @@ class BankCSVReader:
         print(f"csvFileColumnTitles: {self.bank_account.properties['csvFileColumnTitles']}")
         print(f"csvFileColumns: {self.bank_account.properties['csvFileColumns']}")
         if self.bank_account.properties["csvFileHasHeader"]:
-            return pd.read_csv(
+            df = pd.read_csv(
                 self.csv_file_path,
                 usecols=self.bank_account.properties["csvFileColumns"],
                 names=self.bank_account.properties["csvFileColumnTitles"],
@@ -55,7 +56,7 @@ class BankCSVReader:
                 dtype={"CheckNo": str}  # Ensure CheckNo is read as a string
             )
         else:
-            return pd.read_csv(
+            df = pd.read_csv(
                 self.csv_file_path,
                 usecols=self.bank_account.properties["csvFileColumns"],
                 names=self.bank_account.properties["csvFileColumnTitles"],
@@ -65,6 +66,9 @@ class BankCSVReader:
                 date_format=self._derive_date_format(self.bank_account.properties["dateFormat"]),
                 dtype={"CheckNo": str}  # Ensure CheckNo is read as a string
             )
+        # Convert the Amount column to Decimal
+        df['Amount'] = df['Amount'].apply(lambda x: round(Decimal(x), 2))
+        return df
 
     def _filter_bank_records(self):
         filter_strings = self.bank_account.properties.get("bankRecordFilterStrings", [])
