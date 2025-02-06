@@ -1,27 +1,28 @@
-# Alvazi micro GL processor
+"""
+Alvazi micro GL processor
+
+This program processes bank transaction CSV files, records the transactions in a General Ledger (GL) database,
+and exports the GL items to an Excel sheet. It uses various modules to handle bank accounts, database operations,
+GL items, and document processing.
+
+Modules:
+- json: For loading configuration constants from a JSON file.
+- bank_account: For handling bank account properties.
+- database: For database operations.
+- gl_item: For GL item handling.
+- gl_document: For GL document processing.
+- bank_csv_reader: For reading and iterating over bank transaction CSV files.
+- GlToExcelWriter: For writing GL items to an Excel sheet.
+"""
 
 # Libraries
-import json
 from bank_account import BankAccount
 from database import Database
 from gl_item import GLItem
 from gl_document import GLDocument
 from bank_csv_reader import BankCSVIterator, BankCSVReader
-
-# Config class to load constants from JSON file
-class Config:
-    config_file_path: str
-    config: dict
-
-    def __init__(self, config_file_path: str):
-        self.config_file_path = config_file_path
-        with open(config_file_path, 'r') as file:
-            self.config = json.load(file)
-    
-    def get(self, key: str):
-        if key not in self.config:
-            raise KeyError(f"Key '{key}' not found in configuration file {self.config_file_path}.")
-        return self.config[key]
+from gl_to_excel_writer import GlToExcelWriter
+from config import Config
 
 # Main program logic
 class Main:
@@ -83,6 +84,13 @@ class Main:
             if not gl_document._gl_items_exist(self.alvaziGlDb):
                 gl_document.insert_gl_items_into_db(self.alvaziGlDb)
 
+    def write_gl_items_to_excel(self):
+        """
+        Reads the GL items from the database and adds them to a specified Excel sheet table.
+        """
+        excel_writer = GlToExcelWriter()
+        excel_writer.write_gl_items_to_excel()
+
 # Main program:
 # Create Main object, refresh the database, process the bank transaction CSV files, and close the database connection
 
@@ -91,4 +99,5 @@ if __name__ == "__main__":
     main.refreshGlItemsTable()
     main.processBankTransactionCsvFiles()
     main.closeGldb()
+    main.write_gl_items_to_excel()
 

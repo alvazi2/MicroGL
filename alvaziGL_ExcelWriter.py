@@ -2,12 +2,17 @@ import pandas as pd
 from openpyxl import load_workbook
 from openpyxl.worksheet.table import Table, TableStyleInfo
 from database import Database
+import json
 
-DB_PATH = 'alvaziGL_Data/alvaziGL.db'
+# Load constants from JSON file
+with open('constants.json') as f:
+    constants = json.load(f)
+
+DB_PATH = constants['gldbFilePath']
 YEAR = '2024'
-EXCEL_PATH = 'alvaziGL_Data/alvaziGL.xlsx'
-SHEET_NAME = '2024'
-TABLE_NAME = 'Transactions2024'
+EXCEL_PATH = constants['excelWriter']['excelPath']
+SHEET_NAME = constants['excelWriter']['sheetName']
+TABLE_NAME = constants['excelWriter']['tableName']
 
 def write_data_to_excel(db_path, year, excel_path, sheet_name, table_name):
     # Initialize the database
