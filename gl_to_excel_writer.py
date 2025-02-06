@@ -7,7 +7,7 @@ import json
 class GlToExcelWriter:
     def __init__(self):
         # Load constants from JSON file
-        with open('constants.json') as f:
+        with open('Configuration/constants.json') as f:
             constants = json.load(f)
         
         self.db_path = constants['gldbFilePath']

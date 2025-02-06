@@ -1,6 +1,6 @@
 import json
 
-class Config:
+class Constants:
     config_file_path: str
     config: dict
 

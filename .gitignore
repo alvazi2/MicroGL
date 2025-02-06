@@ -2,16 +2,16 @@
 .xls*
 
 # Ignore bank files
-Bank-Files/
 Bank_Files/
 
 # Ignore GL files
-GL-Files/
 GL_Files/
 
 # Ignore GL data files
-alvaziGL-Data/
-alvaziGL_Data/
+GL_Data/
+
+# Ignore Configuration files
+Configuration/
 
 # Ignore JSON setting files
 *.json

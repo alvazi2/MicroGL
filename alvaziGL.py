@@ -6,7 +6,6 @@ and exports the GL items to an Excel sheet. It uses various modules to handle ba
 GL items, and document processing.
 
 Modules:
-- json: For loading configuration constants from a JSON file.
 - bank_account: For handling bank account properties.
 - database: For database operations.
 - gl_item: For GL item handling.
@@ -22,27 +21,27 @@ from gl_item import GLItem
 from gl_document import GLDocument
 from bank_csv_reader import BankCSVIterator, BankCSVReader
 from gl_to_excel_writer import GlToExcelWriter
-from config import Config
+from constants import Constants
 
 # Main program logic
 class Main:
     gldbFilePath: str
     bankAccountPropertiesFilePath: str
     alvaziGlDb: Database
-    config: Config
+    constants: Constants
 
     def __init__(self):
-        self.config = Config('constants.json')
-        self.gldbFilePath = self.config.get('gldbFilePath')
-        self.bankAccountPropertiesFilePath = self.config.get('bankAccountPropertiesFilePath')
+        self.constants = Constants('Configuration/constants.json')
+        self.gldbFilePath = self.constants.get('gldbFilePath')
+        self.bankAccountPropertiesFilePath = self.constants.get('bankAccountPropertiesFilePath')
         self.alvaziGlDb = Database(self.gldbFilePath)
 
     def refreshGlItemsTable(self):
         """
         Drops the GL items table and recreates it.
         """
-        self.alvaziGlDb.drop_table(self.config.get("gldbGlItemsTableName"))
-        self.alvaziGlDb.create_gl_table(self.config.get("gldbGlItemsTableName"))
+        self.alvaziGlDb.drop_table(self.constants.get("gldbGlItemsTableName"))
+        self.alvaziGlDb.create_gl_table(self.constants.get("gldbGlItemsTableName"))
 
     def closeGldb(self):
         """
@@ -52,7 +51,7 @@ class Main:
 
     def processBankTransactionCsvFiles(self):
         # Use BankCSVIterator to iterate over CSV files and print bank account codes and file paths
-        bankCsvIterator = BankCSVIterator(self.config.get("bankFilesFolderPath"))
+        bankCsvIterator = BankCSVIterator(self.constants.get("bankFilesFolderPath"))
         for bankAccountCode, csvFilePath in bankCsvIterator:
             print(f"Bank Account Code: {bankAccountCode}, CSV File Path: {csvFilePath}")
             try:
