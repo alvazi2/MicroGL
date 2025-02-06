@@ -64,6 +64,8 @@ class Database:
                 investment_name TEXT,
                 investment_symbol TEXT,
                 check_no TEXT,
+                account_type TEXT,
+                is_taxable BOOLEAN,
                 PRIMARY KEY (transaction_id, transaction_item_id)
             )
             """

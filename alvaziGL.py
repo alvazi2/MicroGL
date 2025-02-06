@@ -22,6 +22,7 @@ from gl_document import GLDocument
 from bank_csv_reader import BankCSVIterator, BankCSVReader
 from gl_to_excel_writer import GlToExcelWriter
 from constants import Constants
+from chart_of_accounts import ChartOfAccounts
 
 # Main program logic
 class GLProcessor:
@@ -29,12 +30,14 @@ class GLProcessor:
     bank_account_properties_file_path: str
     alvazi_gl_db: Database
     constants: Constants
+    chart_of_accounts: ChartOfAccounts
 
     def __init__(self):
         self.constants = Constants('Configuration/constants.json')
         self.gldb_file_path = self.constants.get('gldbFilePath')
         self.bank_account_properties_file_path = self.constants.get('bankAccountPropertiesFilePath')
         self.alvazi_gl_db = Database(self.gldb_file_path)
+        self.chart_of_accounts = ChartOfAccounts('Configuration/ChartOfAccounts.json')
 
     def refresh_gl_items_table(self):
         """
@@ -75,7 +78,7 @@ class GLProcessor:
             bank_transaction,
         ) in bank_transactions.bank_transaction_records.iterrows():
             try:
-                gl_document = GLDocument(bank_transaction, bank_transactions.bank_account)
+                gl_document = GLDocument(bank_transaction, bank_transactions.bank_account, self.chart_of_accounts)
             except ValueError as e:
                 print(f"Error processing transaction {index} / {bank_transaction.Amount} {bank_transaction.Description} : {e}")
                 continue

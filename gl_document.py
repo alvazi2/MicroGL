@@ -3,11 +3,13 @@ from decimal import Decimal
 from gl_item import GLItem
 from bank_account import BankAccount
 from database import Database
+from chart_of_accounts import ChartOfAccounts
 
 class GLDocument:
-    def __init__(self, bank_transaction_record, bank_account: BankAccount):
+    def __init__(self, bank_transaction_record, bank_account: BankAccount, chart_of_accounts: ChartOfAccounts):
         self.bank_transaction_record = bank_transaction_record
         self.bank_account = bank_account
+        self.chart_of_accounts = chart_of_accounts
         self.items = []
         self.bank_transaction_category = self._determine_bank_transaction_category()
         self._assign_transaction_id()
@@ -47,6 +49,10 @@ class GLDocument:
         investment_symbol = getattr(self.bank_transaction_record, 'Symbol', None)
         check_no = getattr(self.bank_transaction_record, 'CheckNo', None)
 
+        account_properties = self.chart_of_accounts.get_account_properties(gl_mapping["glAccount"])
+        if not account_properties:
+            raise ValueError(f"Account properties not found for GL account: {gl_mapping['glAccount']}")
+
         gl_item = GLItem(
             transaction_id=self.transaction_id,
             transaction_item_id="001",
@@ -62,7 +68,9 @@ class GLDocument:
             bank_account_code=self.bank_account.properties["bankAccountCode"],
             investment_name=investment_name,
             investment_symbol=investment_symbol,
-            check_no=check_no
+            check_no=check_no,
+            account_type=account_properties["accountType"],
+            is_taxable=account_properties["isTaxable"]
         )
         self.items.append(gl_item)
 
@@ -73,6 +81,8 @@ class GLDocument:
             "C" if self.items[0].debit_credit_indicator == "D" else "D"
         )
         offsetting_account_id = self.bank_account.properties["balanceSheetAccount"]
+
+        account_properties = self.chart_of_accounts.get_account_properties(offsetting_account_id)
 
         offsetting_gl_item = GLItem(
             transaction_id=self.transaction_id,
@@ -89,7 +99,9 @@ class GLDocument:
             bank_account_code=self.items[0].bank_account_code,
             investment_name=self.items[0].investment_name,
             investment_symbol=self.items[0].investment_symbol,
-            check_no=self.items[0].check_no
+            check_no=self.items[0].check_no,
+            account_type=account_properties["accountType"],
+            is_taxable=account_properties["isTaxable"]
         )
         self.items.append(offsetting_gl_item)
 
@@ -128,8 +140,10 @@ class GLDocument:
                 bank_account_code,
                 investment_name,
                 investment_symbol,
-                check_no
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                check_no,
+                account_type,
+                is_taxable
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 item.transaction_id,
@@ -146,7 +160,9 @@ class GLDocument:
                 item.bank_account_code,
                 item.investment_name,
                 item.investment_symbol,
-                item.check_no
+                item.check_no,
+                item.account_type,
+                item.is_taxable
             ),
             )
         glDb.commit()

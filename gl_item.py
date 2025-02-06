@@ -18,3 +18,5 @@ class GLItem:
     investment_name: str
     investment_symbol: str
     check_no: str
+    account_type: str
+    is_taxable: bool
