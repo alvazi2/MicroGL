@@ -94,44 +94,60 @@ class GLDocument:
         self.items.append(offsetting_gl_item)
 
     def insert_gl_items_into_db(self, glDb: Database):
+        """
+        Inserts General Ledger (GL) items into the database.
+
+        This method calculates the total amount of all GL items and ensures that the total is zero.
+        It then inserts each GL item into the `gl_items` table in the database.
+
+        Args:
+            glDb (Database): The database connection object.
+
+        Raises:
+            AssertionError: If the total amount of GL items is not zero.
+
+        """
+        total_amount = sum(item.transaction_amount for item in self.items)
+        assert total_amount == 0, f"Total GL item amounts must be zero, but got {total_amount}"
+
         for item in self.items:
             glDb.cursor.execute(
-                f"""
-                INSERT INTO gl_items (
-                    transaction_id,
-                    transaction_item_id,
-                    transaction_date,
-                    posting_year,
-                    posting_period,
-                    transaction_amount,
-                    currency_unit,
-                    debit_credit_indicator,
-                    transaction_description,
-                    account_id,
-                    business_partner,
-                    bank_account_code,
-                    investment_name,
-                    investment_symbol,
-                    check_no
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            f"""
+            INSERT INTO gl_items (
+                transaction_id,
+                transaction_item_id,
+                transaction_date,
+                posting_year,
+                posting_period,
+                transaction_amount,
+                currency_unit,
+                debit_credit_indicator,
+                transaction_description,
+                account_id,
+                business_partner,
+                bank_account_code,
+                investment_name,
+                investment_symbol,
+                check_no
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
-                (
-                    item.transaction_id,
-                    item.transaction_item_id,
-                    item.transaction_date,
-                    item.posting_year,
-                    item.posting_period,
-                    item.transaction_amount,
-                    item.currency_unit,
-                    item.debit_credit_indicator,
-                    item.transaction_description,
-                    item.account_id,
-                    item.business_partner,
-                    item.bank_account_code,
-                    item.investment_name,
-                    item.investment_symbol,
-                    item.check_no
-                ),
+            (
+                item.transaction_id,
+                item.transaction_item_id,
+                item.transaction_date,
+                item.posting_year,
+                item.posting_period,
+                item.transaction_amount,
+                item.currency_unit,
+                item.debit_credit_indicator,
+                item.transaction_description,
+                item.account_id,
+                item.business_partner,
+                item.bank_account_code,
+                item.investment_name,
+                item.investment_symbol,
+                item.check_no
+            ),
             )
         glDb.commit()
 
