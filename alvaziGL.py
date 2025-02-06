@@ -24,39 +24,39 @@ from gl_to_excel_writer import GlToExcelWriter
 from constants import Constants
 
 # Main program logic
-class Main:
-    gldbFilePath: str
-    bankAccountPropertiesFilePath: str
-    alvaziGlDb: Database
+class GLProcessor:
+    gldb_file_path: str
+    bank_account_properties_file_path: str
+    alvazi_gl_db: Database
     constants: Constants
 
     def __init__(self):
         self.constants = Constants('Configuration/constants.json')
-        self.gldbFilePath = self.constants.get('gldbFilePath')
-        self.bankAccountPropertiesFilePath = self.constants.get('bankAccountPropertiesFilePath')
-        self.alvaziGlDb = Database(self.gldbFilePath)
+        self.gldb_file_path = self.constants.get('gldbFilePath')
+        self.bank_account_properties_file_path = self.constants.get('bankAccountPropertiesFilePath')
+        self.alvazi_gl_db = Database(self.gldb_file_path)
 
-    def refreshGlItemsTable(self):
+    def refresh_gl_items_table(self):
         """
         Drops the GL items table and recreates it.
         """
-        self.alvaziGlDb.drop_table(self.constants.get("gldbGlItemsTableName"))
-        self.alvaziGlDb.create_gl_table(self.constants.get("gldbGlItemsTableName"))
+        self.alvazi_gl_db.drop_table(self.constants.get("gldbGlItemsTableName"))
+        self.alvazi_gl_db.create_gl_table(self.constants.get("gldbGlItemsTableName"))
 
-    def closeGldb(self):
+    def close_gldb(self):
         """
         Closes the database connection.
         """
-        self.alvaziGlDb.close()
+        self.alvazi_gl_db.close()
 
-    def processBankTransactionCsvFiles(self):
+    def process_bank_transaction_csv_files(self):
         # Use BankCSVIterator to iterate over CSV files and print bank account codes and file paths
         bankCsvIterator = BankCSVIterator(self.constants.get("bankFilesFolderPath"))
         for bankAccountCode, csvFilePath in bankCsvIterator:
             print(f"Bank Account Code: {bankAccountCode}, CSV File Path: {csvFilePath}")
             try:
                 bankAccountProperties = BankAccount(
-                    property_file_path=self.bankAccountPropertiesFilePath,
+                    property_file_path=self.bank_account_properties_file_path,
                     bank_account_code=bankAccountCode
                 )
             except ValueError as e:
@@ -80,8 +80,8 @@ class Main:
                 print(f"Error processing transaction {index} / {bank_transaction.Amount} {bank_transaction.Description} : {e}")
                 continue
             print(f"--- Processing transaction {index} {bank_transaction.Amount} {bank_transaction.Description} : {gl_document.items[1].currency_unit} / {gl_document.items[0].account_id} - {gl_document.items[1].account_id}")
-            if not gl_document._gl_items_exist(self.alvaziGlDb):
-                gl_document.insert_gl_items_into_db(self.alvaziGlDb)
+            if not gl_document._gl_items_exist(self.alvazi_gl_db):
+                gl_document.insert_gl_items_into_db(self.alvazi_gl_db)
 
     def write_gl_items_to_excel(self):
         """
@@ -91,12 +91,12 @@ class Main:
         excel_writer.write_gl_items_to_excel()
 
 # Main program:
-# Create Main object, refresh the database, process the bank transaction CSV files, and close the database connection
+# Create GLProcessor object, refresh the database, process the bank transaction CSV files, and close the database connection
 
 if __name__ == "__main__":
-    main = Main()
-    main.refreshGlItemsTable()
-    main.processBankTransactionCsvFiles()
-    main.closeGldb()
-    main.write_gl_items_to_excel()
+    processor = GLProcessor()
+    processor.refresh_gl_items_table()
+    processor.process_bank_transaction_csv_files()
+    processor.close_gldb()
+    processor.write_gl_items_to_excel()
 
