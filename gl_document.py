@@ -59,7 +59,7 @@ class GLDocument:
             transaction_date=self.bank_transaction_record.Date.to_pydatetime(),
             posting_year=self.bank_transaction_record.Date.year,
             posting_period=self.bank_transaction_record.Date.month,
-            transaction_amount=-Decimal(self.bank_transaction_record.Amount),
+            transaction_amount=-self.bank_transaction_record.Amount,
             currency_unit=self.bank_account.properties["currencyUnit"],
             debit_credit_indicator=debit_credit_indicator,
             transaction_description=self.bank_transaction_record.Description,
