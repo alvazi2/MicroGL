@@ -77,7 +77,12 @@ class GLProcessor:
             bank_transaction,
         ) in bank_transactions.bank_transaction_records.iterrows():
             try:
-                gl_document = GLDocument(bank_transaction, bank_transactions.bank_account, self.chart_of_accounts)
+                gl_document = GLDocument(
+                    bank_transaction, 
+                    bank_transactions.bank_account, 
+                    self.chart_of_accounts, 
+                    self.constants  # Pass constants to GLDocument
+                )
             except ValueError as e:
                 print(f"Error processing transaction {index} / {bank_transaction.Amount} {bank_transaction.Description} : {e}")
                 continue

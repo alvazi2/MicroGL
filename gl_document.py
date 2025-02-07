@@ -6,10 +6,11 @@ from database import Database
 from chart_of_accounts import ChartOfAccounts
 
 class GLDocument:
-    def __init__(self, bank_transaction_record, bank_account: BankAccount, chart_of_accounts: ChartOfAccounts):
+    def __init__(self, bank_transaction_record, bank_account: BankAccount, chart_of_accounts: ChartOfAccounts, constants):
         self.bank_transaction_record = bank_transaction_record
         self.bank_account = bank_account
         self.chart_of_accounts = chart_of_accounts
+        self.constants = constants  # Store the constants
         self.items = []
         self.bank_transaction_category = self._determine_bank_transaction_category()
         self._assign_transaction_id()
@@ -17,16 +18,16 @@ class GLDocument:
         self._add_offsetting_gl_item()
 
     def _determine_bank_transaction_category(self) -> str:
-        if self.bank_account.properties["bankAccountType"] == "Debit":
+        if self.bank_account.properties["bankAccountType"] == self.constants.get('bankAccountTypes')['debit']:
             if self.bank_transaction_record.Amount >= 0:
-                return "D"
+                return self.constants.get('bankTransactionCategories')['deposit']
             else:
-                return "C"
+                return self.constants.get('bankTransactionCategories')['withdrawal']
         else:
             if self.bank_transaction_record.Amount >= 0:
-                return "C"
+                return self.constants.get('bankTransactionCategories')['withdrawal']
             else:
-                return "D"
+                return self.constants.get('bankTransactionCategories')['deposit']
         
     def _assign_transaction_id(self):
         self.transaction_id = hashlib.sha256(
@@ -39,11 +40,13 @@ class GLDocument:
             self.bank_transaction_record.Description, 
             self.bank_transaction_category
         )
-               
-        if self.bank_transaction_record.Amount >= 0:
-            debit_credit_indicator = "C"
+        # Determine the debit/credit indicator based on the bank transaction category for the P&L account
+        # - For deposits, the bank account (balance sheet) is debited and the P&L account is credited.
+        # - For withdrawals, the bank account (balance sheet) is credited and the P&L account is debited.
+        if self.bank_transaction_category == self.constants.get('bankTransactionCategories')['deposit']:
+            debit_credit_indicator = self.constants.get('dcIndicators')['credit']
         else:
-            debit_credit_indicator = "D"
+            debit_credit_indicator = self.constants.get('dcIndicators')['debit']
 
         investment_name = getattr(self.bank_transaction_record, 'Investment', None)
         investment_symbol = getattr(self.bank_transaction_record, 'Symbol', None)
@@ -53,13 +56,18 @@ class GLDocument:
         if not account_properties:
             raise ValueError(f"Account properties not found for GL account: {gl_mapping['glAccount']}")
 
+        if debit_credit_indicator == self.constants.get('dcIndicators')['debit']:
+            transaction_amount = abs(self.bank_transaction_record.Amount)
+        else:
+            transaction_amount = -abs(self.bank_transaction_record.Amount)
+
         gl_item = GLItem(
             transaction_id=self.transaction_id,
             transaction_item_id="001",
             transaction_date=self.bank_transaction_record.Date.to_pydatetime(),
             posting_year=self.bank_transaction_record.Date.year,
             posting_period=self.bank_transaction_record.Date.month,
-            transaction_amount=-self.bank_transaction_record.Amount,
+            transaction_amount=transaction_amount,
             currency_unit=self.bank_account.properties["currencyUnit"],
             debit_credit_indicator=debit_credit_indicator,
             transaction_description=self.bank_transaction_record.Description,
