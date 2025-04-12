@@ -70,3 +70,6 @@ class GlToExcelWriter:
         
         # Save the workbook
         book.save(self.excel_path)
+
+        # Notify the user
+        print(f"GL items written to {self.excel_path} in the sheet '{self.sheet_name}' with table '{self.table_name}'.")
