@@ -47,6 +47,7 @@ class BankCSVReader:
         if self.bank_account.properties["csvFileHasHeader"]:
             df = pd.read_csv(
                 self.csv_file_path,
+                sep=self.bank_account.properties["csvFileSeparator"],
                 usecols=self.bank_account.properties["csvFileColumns"],
                 names=self.bank_account.properties["csvFileColumnTitles"],
                 header=0,
@@ -58,6 +59,7 @@ class BankCSVReader:
         else:
             df = pd.read_csv(
                 self.csv_file_path,
+                sep=self.bank_account.properties["csvFileSeparator"],
                 usecols=self.bank_account.properties["csvFileColumns"],
                 names=self.bank_account.properties["csvFileColumnTitles"],
                 header=None,
@@ -66,9 +68,24 @@ class BankCSVReader:
                 date_format=self._derive_date_format(self.bank_account.properties["dateFormat"]),
                 dtype={"CheckNo": str}  # Ensure CheckNo is read as a string
             )
-        # Convert the Amount column to Decimal
+        
+        # Post-processing the DataFrame
+
+        # 1) Standardize the Amount column to use a decimal point
+        # This is necessary for German banks that use a comma as a decimal separator
+        df['Amount'] = df['Amount'].apply(lambda x: str(x).replace(',', '.'))
+        
+        # 2) Convert the Amount column to Decimal type and round to 2 decimal places
         df['Amount'] = df['Amount'].apply(lambda x: round(Decimal(x), 2))
+        
+        # 3) Replace empty, NaN, or space-only values in the "Description" column with "<No Description>"
+        df['Description'] = df['Description'].apply(
+            lambda x: '<No Description>' if pd.isna(x) or str(x).strip() == '' else x
+        )
+
+        # Return the adjusted DataFrame
         return df
+
 
     def _filter_bank_records(self):
         filter_strings = self.bank_account.properties.get("bankRecordFilterStrings", [])

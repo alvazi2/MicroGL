@@ -15,6 +15,7 @@ class BankAccount:
 
     def get_gl_mapping_for_search_string(self, search_string: str, bank_transaction_category: str) -> dict:
         for gl_mapping in self.properties["glMapping"]:
+            # print(f"Checking GL mapping: {gl_mapping['searchString']} against search string: {search_string}")
             if gl_mapping["searchString"] in search_string:
                 return gl_mapping
         
