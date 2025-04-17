@@ -30,6 +30,16 @@ class GLDocument:
                 return self.constants.get('bankTransactionCategories')['deposit']
         
     def _assign_transaction_id(self):
+        """
+        Assigns a unique transaction ID based on:
+        - Date
+        - Amount
+        - Description
+        - Bank account code
+        The transaction ID is generated using SHA-256 hashing algorithm to ensure uniqueness.
+        *** Open issue: it can happen that there are two transactions with the same date, amount, and description.
+        In this case, the transaction ID will be the same. Need to find a solution for this.
+        """
         self.transaction_id = hashlib.sha256(
             f"{self.bank_transaction_record.Date}{self.bank_transaction_record.Amount}\
                 {self.bank_transaction_record.Description}{self.bank_account.properties['bankAccountCode']}".encode()

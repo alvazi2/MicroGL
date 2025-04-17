@@ -88,6 +88,12 @@ class BankCSVReader:
 
 
     def _filter_bank_records(self):
+        """
+        Excludes bank transaction records based on the filter strings defined in the bank account properties.
+        The filter strings are used to identify transactions that should be excluded from processing.
+        The filter strings are defined in the bank account properties under the key "bankRecordFilterStrings".
+        This is needed for Vanguard accounts to exclude transactions that are not relevant for the GL, e.g. sweep transactions.
+        """
         filter_strings = self.bank_account.properties.get("bankRecordFilterStrings", [])
         if filter_strings:
             pattern = '|'.join(filter_strings)
