@@ -1,12 +1,10 @@
 import hashlib
-import os
 from decimal import Decimal
 from gl_item import GLItem
 from bank_account import BankAccount
 from database import Database
 from chart_of_accounts import ChartOfAccounts
 from constants import Constants
-import os
 
 class GLDocument:
     def __init__(self, bank_transaction_record, bank_account: BankAccount, chart_of_accounts: ChartOfAccounts, constants: Constants):
@@ -35,6 +33,8 @@ class GLDocument:
     def _assign_transaction_id(self):
         """
         Assigns a unique transaction ID based on:
+        - CSV file name
+        - Row index (in the CSV file, starting from 1)
         - Date
         - Amount
         - Description
@@ -44,7 +44,8 @@ class GLDocument:
         In this case, the transaction ID will be the same. Need to find a solution for this.
         """
         self.transaction_id = hashlib.sha256(
-            f"{self.bank_transaction_record.Date}{self.bank_transaction_record.Amount}\
+            f"{self.bank_transaction_record.CSVFile}{self.bank_transaction_record.RowIndex}\
+                {self.bank_transaction_record.Date}{self.bank_transaction_record.Amount}\
                 {self.bank_transaction_record.Description}{self.bank_account.properties['bankAccountCode']}".encode()
         ).hexdigest()
 
@@ -77,8 +78,8 @@ class GLDocument:
         gl_item = GLItem(
             transaction_id=self.transaction_id,
             transaction_item_id="001",
-            bank_csv_file="", #os.path.basename(self.bank_transaction_record.CSVFile),
-            bank_csv_row_index="", #self.bank_transaction_record.RowIndex,
+            bank_csv_file=self.bank_transaction_record.CSVFile,
+            bank_csv_row_no=self.bank_transaction_record.RowIndex,
             transaction_date=self.bank_transaction_record.Date.to_pydatetime(),
             posting_year=self.bank_transaction_record.Date.year,
             posting_period=self.bank_transaction_record.Date.month,
@@ -111,7 +112,7 @@ class GLDocument:
             transaction_id=self.transaction_id,
             transaction_item_id=offsetting_transaction_item_id,
             bank_csv_file=self.items[0].bank_csv_file,
-            bank_csv_row_index=self.items[0].bank_csv_row_index,
+            bank_csv_row_no=self.items[0].bank_csv_row_no,
             transaction_date=self.items[0].transaction_date,
             posting_year=self.items[0].posting_year,
             posting_period=self.items[0].posting_period,
@@ -153,6 +154,8 @@ class GLDocument:
             INSERT INTO gl_items (
                 transaction_id,
                 transaction_item_id,
+                bank_csv_file,
+                bank_csv_row_no,
                 transaction_date,
                 posting_year,
                 posting_period,
@@ -168,11 +171,13 @@ class GLDocument:
                 check_no,
                 account_type,
                 is_taxable
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 item.transaction_id,
                 item.transaction_item_id,
+                item.bank_csv_file,
+                item.bank_csv_row_no,
                 item.transaction_date,
                 item.posting_year,
                 item.posting_period,

@@ -88,6 +88,15 @@ class BankCSVReader:
             lambda x: '<No Description>' if pd.isna(x) or str(x).strip() == '' else x
         )
 
+        # 4) Add a column for the bank CSV file name
+        df['CSVFile'] = os.path.basename(self.csv_file_path)
+
+        # 5) Add a column for the row index
+        df['RowIndex'] = df.index + 1  # Adding 1 to make it 1-based index
+
+        # print the first 5 rows of the DataFrame for debugging
+        print(df.head())
+
         # Return the adjusted DataFrame
         return df
 

@@ -6,7 +6,7 @@ class GLItem:
     transaction_id: str
     transaction_item_id: int
     bank_csv_file: str
-    bank_csv_row_index: int
+    bank_csv_row_no: int
     transaction_date: str
     posting_year: int
     posting_period: int
