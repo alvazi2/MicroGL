@@ -1,12 +1,15 @@
 import hashlib
+import os
 from decimal import Decimal
 from gl_item import GLItem
 from bank_account import BankAccount
 from database import Database
 from chart_of_accounts import ChartOfAccounts
+from constants import Constants
+import os
 
 class GLDocument:
-    def __init__(self, bank_transaction_record, bank_account: BankAccount, chart_of_accounts: ChartOfAccounts, constants):
+    def __init__(self, bank_transaction_record, bank_account: BankAccount, chart_of_accounts: ChartOfAccounts, constants: Constants):
         self.bank_transaction_record = bank_transaction_record
         self.bank_account = bank_account
         self.chart_of_accounts = chart_of_accounts
@@ -74,6 +77,8 @@ class GLDocument:
         gl_item = GLItem(
             transaction_id=self.transaction_id,
             transaction_item_id="001",
+            bank_csv_file="", #os.path.basename(self.bank_transaction_record.CSVFile),
+            bank_csv_row_index="", #self.bank_transaction_record.RowIndex,
             transaction_date=self.bank_transaction_record.Date.to_pydatetime(),
             posting_year=self.bank_transaction_record.Date.year,
             posting_period=self.bank_transaction_record.Date.month,
@@ -105,6 +110,8 @@ class GLDocument:
         offsetting_gl_item = GLItem(
             transaction_id=self.transaction_id,
             transaction_item_id=offsetting_transaction_item_id,
+            bank_csv_file=self.items[0].bank_csv_file,
+            bank_csv_row_index=self.items[0].bank_csv_row_index,
             transaction_date=self.items[0].transaction_date,
             posting_year=self.items[0].posting_year,
             posting_period=self.items[0].posting_period,

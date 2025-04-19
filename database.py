@@ -51,6 +51,8 @@ class Database:
             CREATE TABLE IF NOT EXISTS {table_name} (
                 transaction_id TEXT,
                 transaction_item_id TEXT,
+                bank_csv_file TEXT,
+                bank_csv_line INTEGER,
                 transaction_date DATE,
                 posting_year INTEGER,
                 posting_period INTEGER,

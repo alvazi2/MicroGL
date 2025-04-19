@@ -22,6 +22,11 @@ class BankCSVIterator:
             raise StopIteration
 
 class BankCSVReader:
+    bank_account_code: str
+    csv_file_path: str
+    bank_account: BankAccount
+    bank_transaction_records: pd.DataFrame
+
     def __init__(self, bank_account_code: str, csv_file_path: str, bank_account: BankAccount):
         self.bank_account_code = bank_account_code
         self.csv_file_path = csv_file_path
@@ -40,7 +45,7 @@ class BankCSVReader:
             date_format_string = date_format_string.replace(key, value)
         return date_format_string
 
-    def _read_csv_file(self):
+    def _read_csv_file(self) -> pd.DataFrame:
         print(f"csvFileHasHeader: {self.bank_account.properties['csvFileHasHeader']}")
         print(f"csvFileColumnTitles: {self.bank_account.properties['csvFileColumnTitles']}")
         print(f"csvFileColumns: {self.bank_account.properties['csvFileColumns']}")
