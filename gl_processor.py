@@ -76,6 +76,10 @@ class GLProcessor:
             index,
             bank_transaction,
         ) in bank_transactions.bank_transaction_records.iterrows():
+            
+            print(f"--- Processing transaction {bank_transaction.CSVFile} {bank_transaction.RowIndex}: "
+                  f"{bank_transaction.Amount} {bank_transaction.Description}")
+        
             try:
                 gl_document = GLDocument(
                     bank_transaction, 
@@ -86,9 +90,16 @@ class GLProcessor:
             except ValueError as e:
                 print(f"Error processing transaction {index} / {bank_transaction.Amount} {bank_transaction.Description} : {e}")
                 continue
-            print(f"--- Processing transaction {index} {bank_transaction.Amount} {bank_transaction.Description} : {gl_document.items[1].currency_unit} / {gl_document.items[0].account_id} - {gl_document.items[1].account_id}")
+
+            print(f"     Recording transaction {bank_transaction.CSVFile} {bank_transaction.RowIndex}: "
+                  f"{bank_transaction.Amount} {bank_transaction.Description} : "
+                  f"{gl_document.items[1].currency_unit} / "
+                  f"{gl_document.items[0].account_id} - {gl_document.items[1].account_id}")
+        
             if not gl_document._gl_items_exist(self.alvazi_gl_db):
                 gl_document.insert_gl_items_into_db(self.alvazi_gl_db)
+            else:
+                print(f"Transaction {bank_transaction.CSVFile} {bank_transaction.RowIndex} is already in the database.")
 
     def write_gl_items_to_excel(self):
         """
