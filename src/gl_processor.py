@@ -27,16 +27,18 @@ from chart_of_accounts import ChartOfAccounts
 class GLProcessor:
     gldb_file_path: str
     bank_account_properties_file_path: str
+    chart_of_accounts_file_path: str
     alvazi_gl_db: Database
     constants: Constants
     chart_of_accounts: ChartOfAccounts
 
     def __init__(self):
-        self.constants = Constants('Configuration/constants.json')
+        self.constants = Constants('./Configuration/constants.json')
         self.gldb_file_path = self.constants.get('gldbFilePath')
         self.bank_account_properties_file_path = self.constants.get('bankAccountPropertiesFilePath')
+        self.chart_of_accounts_file_path = self.constants.get('chartOfAccountsFilePath')
+        self.chart_of_accounts = ChartOfAccounts(self.chart_of_accounts_file_path)
         self.alvazi_gl_db = Database(self.gldb_file_path)
-        self.chart_of_accounts = ChartOfAccounts('Configuration/ChartOfAccounts.json')
 
     def refresh_gl_items_table(self):
         """
