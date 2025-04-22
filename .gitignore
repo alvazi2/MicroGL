@@ -4,9 +4,6 @@
 # Ignore bank files
 Bank_Files/
 
-# Ignore GL files
-GL_Files/
-
 # Ignore GL data files
 GL_Data/
 
