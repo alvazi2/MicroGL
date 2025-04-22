@@ -15,7 +15,7 @@ Modules:
 """
 
 # Libraries
-from bank_account import BankAccount
+from bank_account import BankAccounts, BankAccount
 from database import Database
 from gl_item import GLItem
 from gl_document import GLDocument
@@ -25,20 +25,16 @@ from constants import Constants
 from chart_of_accounts import ChartOfAccounts
 
 class GLProcessor:
-    gldb_file_path: str
-    bank_account_properties_file_path: str
-    chart_of_accounts_file_path: str
-    alvazi_gl_db: Database
     constants: Constants
+    bank_accounts: BankAccounts
     chart_of_accounts: ChartOfAccounts
+    alvazi_gl_db: Database
 
     def __init__(self):
         self.constants = Constants('./Configuration/constants.json')
-        self.gldb_file_path = self.constants.get('gldbFilePath')
-        self.bank_account_properties_file_path = self.constants.get('bankAccountPropertiesFilePath')
-        self.chart_of_accounts_file_path = self.constants.get('chartOfAccountsFilePath')
-        self.chart_of_accounts = ChartOfAccounts(self.chart_of_accounts_file_path)
-        self.alvazi_gl_db = Database(self.gldb_file_path)
+        self.bank_accounts = BankAccounts(self.constants.get('bankAccountPropertiesFilePath'))
+        self.chart_of_accounts = ChartOfAccounts(self.constants.get('chartOfAccountsFilePath'))
+        self.alvazi_gl_db = Database(self.constants.get('gldbFilePath'))
 
     def refresh_gl_items_table(self):
         """
@@ -56,22 +52,22 @@ class GLProcessor:
     def process_bank_transaction_csv_files(self):
         # Use BankCSVIterator to iterate over CSV files and print bank account codes and file paths
         bankCsvIterator = BankCSVIterator(self.constants.get("bankFilesFolderPath"))
-        for bankAccountCode, csvFilePath in bankCsvIterator:
-            print(f"Bank Account Code: {bankAccountCode}, CSV File Path: {csvFilePath}")
+        for bank_account_code, csv_file_path in bankCsvIterator:
+            print(f"Bank Account Code: {bank_account_code}, CSV File Path: {csv_file_path}")
             try:
-                bankAccountProperties = BankAccount(
-                    property_file_path=self.bank_account_properties_file_path,
-                    bank_account_code=bankAccountCode
+                bank_account = BankAccount(
+                    bank_accounts=self.bank_accounts,
+                    bank_account_code=bank_account_code
                 )
             except ValueError as e:
                 print(f"Error: {e}")
                 continue
-            bankTransactions = BankCSVReader(
-                bank_account_code = bankAccountCode, 
-                csv_file_path = csvFilePath, 
-                bank_account = bankAccountProperties
+            bank_transactions = BankCSVReader(
+                bank_account_code = bank_account_code, 
+                csv_file_path = csv_file_path, 
+                bank_account = bank_account
                 )
-            self._record_bank_file_transactions_in_GL(bankTransactions)
+            self._record_bank_file_transactions_in_GL(bank_transactions)
 
     def _record_bank_file_transactions_in_GL(self, bank_transactions: BankCSVReader):
         for (
