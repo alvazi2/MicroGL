@@ -1,3 +1,7 @@
+# This script writes data from a database to an Excel file, creating a table with a specific style.
+# This program was done for testing and development purposes. Can be deleted at some point.
+# The production code is in src/gl_to_excel_writer.py.
+
 import pandas as pd
 from openpyxl import load_workbook
 from openpyxl.worksheet.table import Table, TableStyleInfo

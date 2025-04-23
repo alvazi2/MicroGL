@@ -9,6 +9,7 @@ def adapt_decimal(d):
 def convert_decimal(i):
     return Decimal(i.decode('utf-8')) / 100
 
+# Adapter functions to map datetime to string for storage in SQLite
 def adapt_date(date):
     return date.strftime("%Y-%m-%d")
 
