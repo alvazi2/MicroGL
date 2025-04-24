@@ -14,7 +14,6 @@ class GLDocument:
         self.constants = constants  # Store the constants
         self.items = []
         self.bank_transaction_category = self._determine_bank_transaction_category()
-        self._assign_transaction_id()
         self._add_gl_item()
         self._add_offsetting_gl_item()
 
@@ -30,24 +29,6 @@ class GLDocument:
             else:
                 return self.constants.get('bankTransactionCategories')['deposit']
         
-    def _assign_transaction_id(self):
-        """
-        Assigns a unique transaction ID based on:
-        - CSV file name
-        - Row index (in the CSV file, starting from 1)
-        - Date
-        - Amount
-        - Description
-        - Bank account code
-        The transaction ID is generated using SHA-256 hashing algorithm to ensure uniqueness.
-        *** Open issue: it can happen that there are two transactions with the same date, amount, and description.
-        In this case, the transaction ID will be the same. Need to find a solution for this.
-        """
-        self.transaction_id = hashlib.sha256(
-            f"{self.bank_transaction_record.CSVFile}{self.bank_transaction_record.RowIndex}\
-                {self.bank_transaction_record.Date}{self.bank_transaction_record.Amount}\
-                {self.bank_transaction_record.Description}{self.bank_account.properties['bankAccountCode']}".encode()
-        ).hexdigest()
 
     def _add_gl_item(self):
         gl_mapping = self.bank_account.get_gl_mapping_for_search_string(
@@ -76,7 +57,7 @@ class GLDocument:
             transaction_amount = -abs(self.bank_transaction_record.Amount)
 
         gl_item = GLItem(
-            transaction_id=self.transaction_id,
+            transaction_id=self.bank_transaction_record.TransactionID,
             transaction_item_id="001",
             bank_csv_file=self.bank_transaction_record.CSVFile,
             bank_csv_row_no=self.bank_transaction_record.RowIndex,
@@ -109,7 +90,7 @@ class GLDocument:
         account_properties = self.chart_of_accounts.get_account_properties(offsetting_account_id)
 
         offsetting_gl_item = GLItem(
-            transaction_id=self.transaction_id,
+            transaction_id=self.items[0].transaction_id,
             transaction_item_id=offsetting_transaction_item_id,
             bank_csv_file=self.items[0].bank_csv_file,
             bank_csv_row_no=self.items[0].bank_csv_row_no,
@@ -197,12 +178,12 @@ class GLDocument:
             )
         glDb.commit()
 
-    def _gl_items_exist(self, glDb: Database) -> bool:
+    def _gl_items_exist(self, glDb: Database, transaction_id: str) -> bool:
         glDb.cursor.execute(
             f"""
             SELECT COUNT(*) FROM gl_items WHERE transaction_id = ?
         """,
-            (self.transaction_id,),
+            (transaction_id,),
         )
         count = glDb.cursor.fetchone()[0]
         return count > 0

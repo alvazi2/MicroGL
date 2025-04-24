@@ -19,7 +19,7 @@ from bank_account import BankAccounts, BankAccount
 from database import Database
 from gl_item import GLItem
 from gl_document import GLDocument
-from bank_csv_reader import BankCSVIterator, BankCSVReader
+from bank_files import BankFilesIterator, BankFileTransactions
 from gl_to_excel_writer import GlToExcelWriter
 from constants import Constants
 from chart_of_accounts import ChartOfAccounts
@@ -51,8 +51,8 @@ class GLProcessor:
 
     def process_bank_transaction_csv_files(self):
         # Use BankCSVIterator to iterate over CSV files and print bank account codes and file paths
-        bankCsvIterator = BankCSVIterator(self.constants.get("bankFilesFolderPath"))
-        for bank_account_code, csv_file_path in bankCsvIterator:
+        bank_files_iterator = BankFilesIterator(self.constants.get("bankFilesFolderPath"))
+        for bank_account_code, csv_file_path in bank_files_iterator:
             print(f"Bank Account Code: {bank_account_code}, CSV File Path: {csv_file_path}")
             try:
                 bank_account = BankAccount(
@@ -62,18 +62,18 @@ class GLProcessor:
             except ValueError as e:
                 print(f"Error: {e}")
                 continue
-            bank_transactions = BankCSVReader(
+            bank_transactions = BankFileTransactions(
                 bank_account_code = bank_account_code, 
                 csv_file_path = csv_file_path, 
                 bank_account = bank_account
                 )
             self._record_bank_file_transactions_in_GL(bank_transactions)
 
-    def _record_bank_file_transactions_in_GL(self, bank_transactions: BankCSVReader):
+    def _record_bank_file_transactions_in_GL(self, bank_transactions: BankFileTransactions):
         for (
             index,
             bank_transaction,
-        ) in bank_transactions.bank_transaction_records.iterrows():
+        ) in bank_transactions.bank_transactions.iterrows():
             
             print(f"--- Processing transaction {bank_transaction.CSVFile} {bank_transaction.RowIndex}: "
                   f"{bank_transaction.Amount} {bank_transaction.Description}")
@@ -94,7 +94,7 @@ class GLProcessor:
                   f"{gl_document.items[1].currency_unit} / "
                   f"{gl_document.items[0].account_id} - {gl_document.items[1].account_id}")
         
-            if not gl_document._gl_items_exist(self.alvazi_gl_db):
+            if not gl_document._gl_items_exist(self.alvazi_gl_db, transaction_id=bank_transaction.TransactionID):
                 gl_document.insert_gl_items_into_db(self.alvazi_gl_db)
             else:
                 print(f"Transaction {bank_transaction.CSVFile} {bank_transaction.RowIndex} is already in the database.")
