@@ -15,10 +15,12 @@ from gl_processor import GLProcessor
 # Main program:
 # Create GLProcessor object, refresh the database, process the bank transaction CSV files, and close the database connection
 
+micro_gl_processor: GLProcessor
+
 if __name__ == "__main__":
-    processor = GLProcessor()
-    processor.refresh_gl_items_table()
-    processor.process_bank_transaction_csv_files()
-    processor.close_gldb()
-    processor.write_gl_items_to_excel()
+    micro_gl_processor = GLProcessor()
+    micro_gl_processor.refresh_gl_items_table()
+    micro_gl_processor.process_bank_transaction_csv_files()
+    micro_gl_processor.close_gldb()
+    micro_gl_processor.write_gl_items_to_excel()
 

@@ -32,6 +32,7 @@ class BankCSVReader:
         self.csv_file_path = csv_file_path
         self.bank_account = bank_account
         self.bank_transaction_records = self._read_csv_file()
+        self._post_process_bank_transaction_records()
         self._filter_bank_records()
 
     def _derive_date_format(self, date_format_string: str) -> str:
@@ -49,8 +50,11 @@ class BankCSVReader:
         print(f"csvFileHasHeader: {self.bank_account.properties['csvFileHasHeader']}")
         print(f"csvFileColumnTitles: {self.bank_account.properties['csvFileColumnTitles']}")
         print(f"csvFileColumns: {self.bank_account.properties['csvFileColumns']}")
+
+        bank_transaction_records: pd.DataFrame
+
         if self.bank_account.properties["csvFileHasHeader"]:
-            df = pd.read_csv(
+            bank_transaction_records = pd.read_csv(
                 self.csv_file_path,
                 sep=self.bank_account.properties["csvFileSeparator"],
                 usecols=self.bank_account.properties["csvFileColumns"],
@@ -62,7 +66,7 @@ class BankCSVReader:
                 dtype={"CheckNo": str}  # Ensure CheckNo is read as a string
             )
         else:
-            df = pd.read_csv(
+            bank_transaction_records = pd.read_csv(
                 self.csv_file_path,
                 sep=self.bank_account.properties["csvFileSeparator"],
                 usecols=self.bank_account.properties["csvFileColumns"],
@@ -73,33 +77,32 @@ class BankCSVReader:
                 date_format=self._derive_date_format(self.bank_account.properties["dateFormat"]),
                 dtype={"CheckNo": str}  # Ensure CheckNo is read as a string
             )
-        
-        # Post-processing the DataFrame
+
+        # Return the DataFrame
+        return bank_transaction_records
+
+    def _post_process_bank_transaction_records(self):
 
         # 1) Standardize the Amount column to use a decimal point
         # This is necessary for German banks that use a comma as a decimal separator
-        df['Amount'] = df['Amount'].apply(lambda x: str(x).replace(',', '.'))
+        self.bank_transaction_records['Amount'] = self.bank_transaction_records['Amount'].apply(lambda x: str(x).replace(',', '.'))
         
         # 2) Convert the Amount column to Decimal type and round to 2 decimal places
-        df['Amount'] = df['Amount'].apply(lambda x: round(Decimal(x), 2))
+        self.bank_transaction_records['Amount'] = self.bank_transaction_records['Amount'].apply(lambda x: round(Decimal(x), 2))
         
         # 3) Replace empty, NaN, or space-only values in the "Description" column with "<No Description>"
-        df['Description'] = df['Description'].apply(
+        self.bank_transaction_records['Description'] = self.bank_transaction_records['Description'].apply(
             lambda x: '<No Description>' if pd.isna(x) or str(x).strip() == '' else x
         )
 
         # 4) Add a column for the bank CSV file name
-        df['CSVFile'] = os.path.basename(self.csv_file_path)
+        self.bank_transaction_records['CSVFile'] = os.path.basename(self.csv_file_path)
 
         # 5) Add a column for the row index
-        df['RowIndex'] = df.index + 1  # Adding 1 to make it 1-based index
+        self.bank_transaction_records['RowIndex'] = self.bank_transaction_records.index + 1  # Adding 1 to make it 1-based index
 
         # print the first 5 rows of the DataFrame for debugging
-        print(df.head())
-
-        # Return the adjusted DataFrame
-        return df
-
+        print(self.bank_transaction_records.head())
 
     def _filter_bank_records(self):
         """
