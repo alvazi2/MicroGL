@@ -13,12 +13,13 @@ Modules:
 from gl_processor import GLProcessor  
 
 # Main program:
-# Create GLProcessor object, refresh the database, process the bank transaction CSV files, and close the database connection
+# Create GLProcessor object, refresh the database, process the bank transaction CSV files, 
+# and close the database connection
 
 micro_gl_processor: GLProcessor
 
 if __name__ == "__main__":
-    micro_gl_processor = GLProcessor()
+    micro_gl_processor = GLProcessor(constants_file_path='./Configuration/constants.json')
     micro_gl_processor.refresh_gl_items_table()
     micro_gl_processor.process_bank_transaction_csv_files()
     micro_gl_processor.close_gldb()
