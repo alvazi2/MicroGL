@@ -13,6 +13,9 @@ Configuration/
 # Ignore JSON setting files
 *.json
 
+# Ignore output files
+*.out
+
 # Mac technical (not sure why these are there)
 .DS_Store
 .sesskey
